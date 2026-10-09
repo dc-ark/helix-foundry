@@ -250,7 +250,7 @@ tr.click { cursor: pointer; } tr.click:hover td { background: var(--sunken); }
     <div class="ws"><span class="badge">AD</span><div><div class="t">Ark dev ledger</div><div class="s" id="ws-sub">No files loaded</div></div></div>
     <nav class="nav" id="nav"></nav>
     <div class="side-foot"><span class="av" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="5" width="16" height="11" rx="2"/><path d="M2 19h20"/></svg></span>
-      <div><div class="t">This browser</div><div class="s">Local files · nothing uploaded</div></div></div>
+      <div><div class="t">This browser</div><div class="s" id="foot-sub">Nothing loaded</div><button class="link small" data-load-files>Load other files</button></div></div>
   </aside>
   <main id="main"></main>
 </div>
@@ -272,7 +272,7 @@ const state = {
   explorer: { mode: "graph", hidden: new Set(), selected: null, q: "" },
   ask: { threads: [], current: null, busy: false, ctl: null },
   grid: { table: null, filter: "", sort: null, desc: false, page: 0 },
-  recent: [],
+  recent: [], files: new Map(), store: null, assets: null, saved: null, fromSaved: false,
 };
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -386,32 +386,104 @@ function references() {
 
 // ---------- Loading files ----------
 const EXPECTED = Object.keys(TYPES);
+// Registers one Parquet file's bytes with DuckDB and materialises it as a table;
+// the bytes are kept so the export can be saved into the artifact afterwards.
+let loadSeq = 0;
+async function loadBytes(file, bytes) {
+  const name = file.replace(/\.parquet$/i, "").replace(/[^A-Za-z0-9_]/g, "_");
+  // DuckDB takes ownership of the buffer it is given (it is transferred to the
+  // worker, leaving the original empty), so it gets a copy and the page keeps the bytes.
+  // Each load registers under a fresh internal name: DuckDB-WASM keeps a reused name
+  // pointing at the earlier, already-consumed buffer, so a second export would read empty.
+  const reg = `load${++loadSeq}_${file}`;
+  await state.db.registerFileBuffer(reg, bytes.slice());
+  // Materialised once so every later query reads from memory, not the Parquet bytes.
+  await state.conn.query(`CREATE OR REPLACE TABLE ${qid(name)} AS SELECT * FROM read_parquet(${lit(reg)})`);
+  await state.db.dropFile(reg).catch(() => {});
+  const cols = await q(`SELECT column_name AS name, data_type AS type FROM information_schema.columns WHERE table_name = ${lit(name)} ORDER BY ordinal_position`);
+  const rows = (await one(`SELECT count(*) AS n FROM ${qid(name)}`)).n;
+  state.tables.set(name, { rows, cols });
+  state.files.set(name, { file, bytes });
+}
 async function loadFiles(list, status) {
   const files = [...(list || [])];
   if (!files.length) return status("No files came through. Try dragging them onto the box instead.");
+  for (const t of state.tables.keys()) await state.conn.query(`DROP TABLE IF EXISTS ${qid(t)}`);
+  state.tables.clear(); state.files.clear(); state.manifest = null; state.fromSaved = false;
   for (const f of files) {
     try {
       if (/manifest\.json$/i.test(f.name)) { state.manifest = JSON.parse(await f.text()); continue; }
       if (!/\.parquet$/i.test(f.name)) { status(`Skipped ${f.name}: not a Parquet file.`); continue; }
-      const name = f.name.replace(/\.parquet$/i, "").replace(/[^A-Za-z0-9_]/g, "_");
       status(`Loading ${f.name} (${(f.size / 1e6).toFixed(1)} MB)...`);
-      await state.db.registerFileBuffer(f.name, new Uint8Array(await f.arrayBuffer()));
-      // Materialised once so every later query reads from memory, not the Parquet bytes.
-      await state.conn.query(`CREATE OR REPLACE TABLE ${qid(name)} AS SELECT * FROM read_parquet(${lit(f.name)})`);
-      const cols = await q(`SELECT column_name AS name, data_type AS type FROM information_schema.columns WHERE table_name = ${lit(name)} ORDER BY ordinal_position`);
-      const rows = (await one(`SELECT count(*) AS n FROM ${qid(name)}`)).n;
-      state.tables.set(name, { rows, cols });
+      await loadBytes(f.name, new Uint8Array(await f.arrayBuffer()));
     } catch (e) { return status(`Could not load ${f.name}: ${e.message || e}`); }
   }
   status("");
   if (state.tables.size) { graphCache = null; go(location.hash.slice(1) || "home"); }
 }
 
+// ---------- Saved export: the data kept inside the artifact ----------
+// Each Parquet file is stored as a base64 text asset (the asset store takes text,
+// not arbitrary binary), split into parts under the 20 MiB per-file cap. One db
+// document, lens/export, is the index every viewer reads on open.
+const SAVED_DOC = "lens/export", PART = 15 * 1024 * 1024;
+function toB64(bytes) { let s = ""; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(s); }
+function fromB64(str) { const bin = atob(str), out = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return out; }
+async function openSaved(status) {
+  if (!state.store) return false;
+  const snap = await state.store.doc(SAVED_DOC).get().catch(() => null);
+  if (!snap?.exists) return false;
+  const saved = snap.data(), tables = saved.tables || [];
+  for (const [i, t] of tables.entries()) {
+    status(`Opening the saved export: ${t.file} (${i + 1} of ${tables.length})...`);
+    let text = "";
+    for (const id of t.parts) {
+      const res = await fetch("/_blob/" + id);
+      if (!res.ok) throw new Error(`a saved part of ${t.file} is missing (HTTP ${res.status})`);
+      text += await res.text();
+    }
+    await loadBytes(t.file, fromB64(text));
+  }
+  state.manifest = saved.manifest || null; state.saved = saved; state.fromSaved = true;
+  return tables.length > 0;
+}
+async function saveExport(btn, note) {
+  const set = (t) => { note.textContent = t; };
+  btn.disabled = true;
+  try {
+    const old = state.saved, tables = [];
+    for (const [name, f] of state.files) {
+      set(`Saving ${f.file}...`);
+      if (!f.bytes.length) throw new Error(`${f.file} has no bytes to save; load the files again`);
+      const b64 = toB64(f.bytes), parts = [];
+      for (let i = 0; i < b64.length; i += PART) parts.push((await state.assets.upload(new Blob([b64.slice(i, i + PART)], { type: "text/plain" }), { type: "text/plain" })).id);
+      tables.push({ name, file: f.file, parts, bytes: f.bytes.length });
+    }
+    const saved = { saved_at: new Date().toISOString(), manifest: state.manifest, tables };
+    await state.store.doc(SAVED_DOC).set(saved);
+    // The index now points at the new parts; the previous export's parts are unreferenced.
+    for (const t of old?.tables || []) for (const id of t.parts) await state.assets.delete(id).catch(() => {});
+    state.saved = saved; state.fromSaved = true; renderNav();
+    set("Saved. This artifact now opens with this export."); btn.hidden = true;
+  } catch (e) {
+    btn.disabled = false;
+    set({ quota_or_state: "The artifact's storage is full or unavailable.", too_large: "A file is too large to store.", not_granted: "Only the artifact's owner and editors can save data into it.", rate_limited: "Too many uploads at once; try again shortly." }[e.code] || `Saving failed: ${e.message || e.code || e}`);
+  }
+}
+function saveBanner() {
+  if (!state.assets || !state.store || state.fromSaved || !state.files.size) return "";
+  const mb = [...state.files.values()].reduce((a, f) => a + f.bytes.length, 0) / 1e6;
+  return `<div class="attention" style="background:var(--accent-soft);border-color:var(--line-strong)"><div class="row">
+    <span><b>${state.saved ? "Replace the saved export with these files?" : "Keep this export in the artifact?"}</b> <span class="muted">${state.saved ? "The artifact currently opens with the export saved " + esc(new Date(state.saved.saved_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })) + "." : "It then opens without the upload step, for you and anyone you share it with."} ${mb.toFixed(1)} MB of dev data, personal data included.</span></span>
+    <button class="btn dark" id="savebtn">${state.saved ? "Replace saved export" : "Save into artifact"}</button></div><div class="muted small" id="savenote"></div></div>`;
+}
+
 function renderLoader(msg = "") {
   state.view = "loader"; renderNav();
   $("#main").innerHTML = `
   <div class="loader">
-    <div><div class="eyebrow">Ark dev ledger</div><h1>Load your export to begin</h1>
+    ${state.tables.size ? `<div><button class="link small" data-go="home">← Back to the loaded data</button></div>` : ""}
+    <div><div class="eyebrow">Ark dev ledger</div><h1>${state.tables.size ? "Load a different export" : "Load your export to begin"}</h1>
       <p class="lede">Choose every file in <code>ark/out/</code>. They're read here in your browser and never uploaded; only the results of questions you ask go to Claude.</p></div>
     <div class="drop" id="drop">
       <div style="font-size:16px;font-weight:500">Drop the Parquet files here</div>
@@ -448,11 +520,13 @@ function renderNav() {
     <div class="nav-sub">${state.ask.threads.slice(-6).reverse().map((t) => `<button data-thread="${t.id}" ${cur(v === "analyst" && state.ask.current === t.id)} title="${esc(t.title)}">${esc(t.title)}</button>`).join("")}</div>`;
   const rows = [...state.tables.values()].reduce((a, t) => a + t.rows, 0);
   $("#ws-sub").textContent = on ? `${state.tables.size} datasets · ${compactN(rows)} rows` : "No files loaded";
+  $("#foot-sub").textContent = state.fromSaved ? "Saved in this artifact" : on ? "Loaded in this tab only" : "Nothing loaded";
 }
 document.addEventListener("click", (e) => {
   const g = e.target.closest("[data-go]"); if (g) { if (!g.disabled) go(g.dataset.go); return; }
   const th = e.target.closest("[data-thread]"); if (th) { state.ask.current = th.dataset.thread; return go("analyst"); }
   if (e.target.closest("[data-new-thread]")) { state.ask.current = null; return go("analyst"); }
+  if (e.target.closest("[data-load-files]")) return renderLoader();
   const p = e.target.closest("[data-party]"); if (p && p.dataset.party) return openParty(p.dataset.party);
   const t = e.target.closest("[data-table]"); if (t) { Object.assign(state.grid, { table: t.dataset.table, filter: "", sort: null, page: 0 }); return go("data"); }
 });
@@ -531,7 +605,7 @@ function starters() {
 async function renderHome() {
   const s = state.home, m = state.manifest;
   const totalRows = [...state.tables.values()].reduce((a, t) => a + t.rows, 0);
-  $("#main").innerHTML = `
+  $("#main").innerHTML = `${saveBanner()}
   <section class="hero">
     <div class="eyebrow">${new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</div>
     <h1>${greeting()}</h1>
@@ -554,6 +628,7 @@ async function renderHome() {
     <section class="card pad" style="display:grid;gap:14px;align-content:start"><div class="card-head"><h2>Payment corridors</h2><span class="sub">same period</span></div><div id="corr"></div></section>
   </div>`;
   $("#range").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { s.range = +b.dataset.d; renderHome(); } });
+  $("#savebtn")?.addEventListener("click", () => saveExport($("#savebtn"), $("#savenote")));
   $("#heroask").addEventListener("submit", (e) => { e.preventDefault(); const v = $("#heroq").value.trim(); if (v) startQuestion(v); });
   document.querySelectorAll("[data-ask]").forEach((b) => b.addEventListener("click", () => startQuestion(b.dataset.ask)));
 
@@ -1049,9 +1124,18 @@ async function send(question) {
 }
 
 // ---------- Boot ----------
+// The engine and the artifact's storage start together; a saved export, when there
+// is one, opens straight into Home, and otherwise the loader asks for files.
 let engineError = "";
 renderLoader();
-startEngine().then(() => { const el = $("#loadstatus"); if (el && !el.textContent.startsWith("Could")) el.textContent = "Ready. Choose or drop your files."; })
-  .catch((e) => { engineError = "The query engine didn't start: " + (e.message || e); const el = $("#loadstatus"); if (el) el.textContent = engineError; });
-if (window.claude?.use) window.claude.use("sample").then((s) => { state.sample = s; if (state.view === "analyst") renderAnalyst(); }).catch(() => {});
+const useCap = (n) => (window.claude?.use ? window.claude.use(n).catch(() => null) : Promise.resolve(null));
+useCap("sample").then((s) => { state.sample = s; if (state.view === "analyst") renderAnalyst(); });
+Promise.all([startEngine(), useCap("db"), useCap("assets")]).then(async ([, store, assets]) => {
+  state.store = store; state.assets = assets;
+  const status = (t) => { const el = $("#loadstatus"); if (el) el.textContent = t; };
+  try {
+    if (await openSaved(status)) { graphCache = null; return go(location.hash.slice(1) || "home"); }
+  } catch (e) { return status("The saved export couldn't be opened: " + (e.message || e) + ". Load the files instead."); }
+  status("Ready. Choose or drop your files.");
+}).catch((e) => { engineError = "The query engine didn't start: " + (e.message || e); const el = $("#loadstatus"); if (el) el.textContent = engineError; });
 </script>
