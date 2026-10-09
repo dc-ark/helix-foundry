@@ -1,173 +1,260 @@
 <title>Ark Ledger Lens</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <style>
-/* Layout: a sticky top bar with four sections; each section is one column of
-   panels that widens into two at desktop width. Charts and tables live in panels. */
+/* Layout: a fixed left sidebar (sections, sub-sections, recent questions) beside one
+   scrolling content column; warm paper surfaces, serif display headings, green accent. */
 :root {
-  --bg: #f4f6f5; --surface: #ffffff; --sunken: #eef2f0; --fg: #141c19; --muted: #5a6964; --faint: #8a9893; --line: #dce3e0;
-  --accent: #1f6f5c; --accent-ink: #ffffff; --accent-soft: #e2f0eb;
-  --s1: #2a78d6; --s2: #eb6834;
-  --good: #1d7a46; --good-bg: #e3f3e9; --warn: #8a6100; --warn-bg: #fbf0d9; --bad: #b3261e; --bad-bg: #fbe6e4;
-  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --bg: #f6f5f1; --surface: #fbfaf7; --raised: #ffffff; --sunken: #efede6; --fg: #23251f; --muted: #6b6c63; --faint: #9a9a90; --line: #e6e3da; --line-strong: #d6d2c6;
+  --accent: #2f7d5b; --accent-ink: #ffffff; --accent-soft: #e5efe8; --accent-fill: rgb(47 125 91 / 0.10); --ink-btn: #23251f;
+  --warn: #8a6100; --warn-bg: #f7f0de; --warn-line: #e9d9ae; --bad: #b23a2a; --good: #2f7d5b;
+  --t-party: #eb6834; --t-fee: #2a78d6; --t-pay: #1baf7a; --t-txn: #eda100; --t-owner: #e87ba4; --t-sender: #6250d6; --t-acct: #008300; --t-other: #9a9a90;
+  --serif: "Newsreader", "Iowan Old Style", Georgia, serif;
+  --sans: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #0e1412; --surface: #151d1a; --sunken: #111816; --fg: #e3ebe7; --muted: #9aaaa4; --faint: #6e7f79; --line: #26332f;
-  --accent: #5fc2a6; --accent-ink: #0e1412; --accent-soft: #183129;
-  --s1: #3987e5; --s2: #d95926;
-  --good: #6bd396; --good-bg: #163322; --warn: #f0c060; --warn-bg: #362a10; --bad: #ff8a80; --bad-bg: #3a1a18; color-scheme: dark } }
+  --bg: #161714; --surface: #1c1d1a; --raised: #22231f; --sunken: #262722; --fg: #ecebe4; --muted: #a3a397; --faint: #75766c; --line: #2e2f2a; --line-strong: #3b3c36;
+  --accent: #6cc39a; --accent-ink: #12130f; --accent-soft: #1f3128; --accent-fill: rgb(108 195 154 / 0.14); --ink-btn: #ecebe4;
+  --warn: #e9c46a; --warn-bg: #2c2615; --warn-line: #4a3f1f; --bad: #ff8a7a; --good: #6cc39a;
+  --t-party: #d95926; --t-fee: #3987e5; --t-pay: #199e70; --t-txn: #c98500; --t-owner: #d55181; --t-sender: #9085e9; --t-acct: #2f9e2f; color-scheme: dark } }
 :root[data-theme="dark"] {
-  --bg: #0e1412; --surface: #151d1a; --sunken: #111816; --fg: #e3ebe7; --muted: #9aaaa4; --faint: #6e7f79; --line: #26332f;
-  --accent: #5fc2a6; --accent-ink: #0e1412; --accent-soft: #183129;
-  --s1: #3987e5; --s2: #d95926;
-  --good: #6bd396; --good-bg: #163322; --warn: #f0c060; --warn-bg: #362a10; --bad: #ff8a80; --bad-bg: #3a1a18; color-scheme: dark }
+  --bg: #161714; --surface: #1c1d1a; --raised: #22231f; --sunken: #262722; --fg: #ecebe4; --muted: #a3a397; --faint: #75766c; --line: #2e2f2a; --line-strong: #3b3c36;
+  --accent: #6cc39a; --accent-ink: #12130f; --accent-soft: #1f3128; --accent-fill: rgb(108 195 154 / 0.14); --ink-btn: #ecebe4;
+  --warn: #e9c46a; --warn-bg: #2c2615; --warn-line: #4a3f1f; --bad: #ff8a7a; --good: #6cc39a;
+  --t-party: #d95926; --t-fee: #3987e5; --t-pay: #199e70; --t-txn: #c98500; --t-owner: #d55181; --t-sender: #9085e9; --t-acct: #2f9e2f; color-scheme: dark }
 
+html, body { height: 100%; }
 body { background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 14.5px; line-height: 1.5; }
-.mono, code, td.num, .num { font-family: var(--mono); }
-.num, td.num { font-variant-numeric: tabular-nums; }
-code { font-size: 0.92em; background: var(--sunken); padding: 1px 5px; border-radius: 4px; }
-a, .link { color: var(--accent); cursor: pointer; text-decoration: none; }
-a:hover, .link:hover { text-decoration: underline; }
-button { font: inherit; cursor: pointer; }
+.mono, code { font-family: var(--mono); } .num { font-variant-numeric: tabular-nums; }
+code { font-size: 0.9em; background: var(--sunken); padding: 1px 5px; border-radius: 4px; }
+button { font: inherit; color: inherit; cursor: pointer; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.link { color: var(--accent); cursor: pointer; background: none; border: 0; padding: 0; }
+.link:hover { text-decoration: underline; }
 
-.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
-.bar-inner { max-width: 1280px; margin: 0 auto; padding-inline: 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; min-height: 56px; }
-.brand { font-weight: 700; letter-spacing: -0.01em; font-size: 16px; display: flex; align-items: center; gap: 8px; }
-.brand-mark { width: 18px; height: 18px; border-radius: 4px; background: var(--accent); display: inline-block; }
-nav.tabs { display: flex; gap: 2px; flex-wrap: wrap; }
-nav.tabs button { background: none; border: 0; padding: 8px 12px; border-radius: 6px; color: var(--muted); font-weight: 500; }
-nav.tabs button[aria-current="page"] { color: var(--fg); background: var(--sunken); }
-nav.tabs button:disabled { opacity: 0.4; cursor: default; }
-.snapshot { margin-left: auto; font-size: 12.5px; color: var(--muted); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+/* Shell */
+.app { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: 100%; }
+.side { position: sticky; top: env(safe-area-inset-top, 0px); height: 100vh; box-sizing: border-box; border-right: 1px solid var(--line); background: var(--bg); padding: 18px 12px; display: flex; flex-direction: column; gap: 14px; }
+.wordmark { font-weight: 600; font-size: 19px; letter-spacing: -0.03em; padding: 2px 10px; }
+.wordmark b { font-weight: 700; }
+.ws { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); background: var(--raised); border-radius: 10px; padding: 8px 10px; }
+.ws .badge { width: 30px; height: 30px; border-radius: 7px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-weight: 600; font-size: 12.5px; }
+.ws .t { font-weight: 600; font-size: 14px; } .ws .s { font-size: 12px; color: var(--muted); }
+.nav { display: grid; gap: 2px; }
+.nav-item { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 8px; color: var(--fg); background: none; border: 0; text-align: left; font-size: 14.5px; width: 100%; }
+.nav-item svg { width: 18px; height: 18px; flex: none; color: var(--muted); }
+.nav-item:hover { background: var(--sunken); }
+.nav-item[aria-current="page"] { background: var(--accent-soft); font-weight: 500; }
+.nav-item[aria-current="page"] svg { color: var(--accent); }
+.nav-item:disabled { opacity: 0.45; cursor: default; }
+.nav-sub { margin: 2px 0 4px 19px; border-left: 1px solid var(--line); display: grid; gap: 1px; padding-left: 10px; }
+.nav-sub button { background: none; border: 0; text-align: left; padding: 6px 10px; border-radius: 7px; color: var(--muted); font-size: 13.5px; position: relative; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nav-sub button:hover { color: var(--fg); background: var(--sunken); }
+.nav-sub button[aria-current="page"] { color: var(--fg); font-weight: 500; }
+.nav-sub button[aria-current="page"]::before { content: ""; position: absolute; left: -11px; top: 6px; bottom: 6px; width: 2px; background: var(--accent); border-radius: 2px; }
+.nav-row { display: flex; align-items: center; } .nav-row .nav-item { flex: 1; }
+.icon-btn { background: none; border: 0; padding: 6px; border-radius: 6px; color: var(--muted); display: grid; place-items: center; }
+.icon-btn:hover { background: var(--sunken); color: var(--fg); }
+.icon-btn svg { width: 16px; height: 16px; }
+.side-foot { margin-top: auto; border-top: 1px solid var(--line); padding: 12px 6px 0; display: flex; gap: 10px; align-items: center; }
+.side-foot .av { width: 34px; height: 34px; border-radius: 50%; background: var(--ink-btn); color: var(--bg); display: grid; place-items: center; flex: none; }
+.side-foot .av svg { width: 16px; height: 16px; }
+.side-foot .t { font-weight: 500; font-size: 13.5px; } .side-foot .s { font-size: 12px; color: var(--muted); }
+main { padding: 28px 32px 64px; display: grid; gap: 22px; align-content: start; max-width: 1240px; width: 100%; box-sizing: border-box; }
+@media (max-width: 900px) {
+  .app { grid-template-columns: 1fr; }
+  .side { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; padding: 10px 16px; border-right: 0; border-bottom: 1px solid var(--line); gap: 8px; }
+  .ws, .side-foot, .nav-sub { display: none; }
+  .nav { display: flex; flex-wrap: wrap; gap: 2px; } .nav-item { width: auto; padding: 6px 10px; } .nav-row .icon-btn { display: none; }
+  main { padding: 20px 16px 48px; }
+}
 
-main { max-width: 1280px; margin: 0 auto; padding: 24px 16px 64px; display: grid; gap: 20px; }
-h1 { font-size: 24px; margin: 0; letter-spacing: -0.015em; text-wrap: balance; }
-h2 { font-size: 15px; margin: 0; font-weight: 600; }
-.eyebrow { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
-.sub { color: var(--muted); margin: 4px 0 0; max-width: 70ch; }
-.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-content: start; }
-.seg.wrap { flex-wrap: wrap; border: 0; gap: 6px; overflow: visible; }
-.seg.wrap button { border: 1px solid var(--line); border-radius: 999px; }
-.panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-.panel-head .note { font-size: 12.5px; color: var(--muted); }
-.grid2 { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); }
-.tiles { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); }
-.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 2px; }
-.tile .label { font-size: 12.5px; color: var(--muted); }
-.tile .value { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-.tile .foot { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.delta-up { color: var(--good); } .delta-down { color: var(--bad); }
-.chip { display: inline-block; font-size: 11.5px; font-weight: 500; padding: 2px 8px; border-radius: 999px; background: var(--sunken); color: var(--muted); white-space: nowrap; }
-.chip.good { background: var(--good-bg); color: var(--good); } .chip.warn { background: var(--warn-bg); color: var(--warn); } .chip.bad { background: var(--bad-bg); color: var(--bad); }
-.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
-.seg button { border: 0; background: none; padding: 4px 10px; font-size: 12.5px; color: var(--muted); }
-.seg button[aria-pressed="true"] { background: var(--sunken); color: var(--fg); font-weight: 500; }
-.btn { border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); border-radius: 8px; padding: 8px 14px; font-weight: 500; }
-.btn.ghost { background: transparent; color: var(--accent); }
+/* Type */
+h1, .display { font-family: var(--serif); font-weight: 400; letter-spacing: -0.015em; margin: 0; text-wrap: balance; }
+h1 { font-size: 40px; line-height: 1.1; }
+h2 { font-size: 15px; font-weight: 600; margin: 0; }
+.lede { color: var(--muted); margin: 6px 0 0; font-size: 15.5px; max-width: 70ch; }
+.muted { color: var(--muted); } .small { font-size: 12.5px; }
+.eyebrow { font-size: 13px; color: var(--muted); }
+
+/* Surfaces */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; min-width: 0; }
+.card.pad { padding: 18px; }
+.card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.card-head .sub, .sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.split { border-top: 1px solid var(--line); }
+.grid2 { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); }
+.pill { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line-strong); background: var(--surface); border-radius: 999px; padding: 6px 13px; font-size: 13px; color: var(--fg); white-space: nowrap; }
+button.pill:hover { border-color: var(--accent); }
+.pill svg { width: 14px; height: 14px; color: var(--muted); }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--c); display: inline-block; flex: none; }
+.btn { border: 1px solid var(--line-strong); background: var(--raised); border-radius: 9px; padding: 8px 14px; font-weight: 500; display: inline-flex; gap: 8px; align-items: center; }
+.btn:hover { border-color: var(--faint); }
+.btn.dark { background: var(--ink-btn); color: var(--bg); border-color: var(--ink-btn); }
+.btn.plain { border-color: transparent; background: none; }
+.btn svg { width: 15px; height: 15px; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-input[type="search"], input[type="text"], textarea, select { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; min-width: 0; }
-.empty { color: var(--muted); font-size: 13.5px; padding: 8px 0; }
+.seg { display: inline-flex; background: var(--sunken); border-radius: 10px; padding: 3px; gap: 2px; }
+.seg button { border: 0; background: none; padding: 6px 14px; border-radius: 8px; color: var(--muted); font-size: 13.5px; }
+.seg button[aria-pressed="true"] { background: var(--raised); color: var(--fg); box-shadow: 0 1px 2px rgb(0 0 0 / 0.08); }
+input[type="search"], input[type="text"], textarea, select { font: inherit; color: var(--fg); background: var(--raised); border: 1px solid var(--line-strong); border-radius: 10px; padding: 9px 12px; min-width: 0; box-sizing: border-box; }
+.search { position: relative; } .search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--muted); }
+.search input { padding-left: 36px; width: 100%; }
+.empty { color: var(--muted); font-size: 13.5px; padding: 6px 0; }
 
-/* Tables */
-.tablewrap { overflow-x: auto; border-radius: 6px; }
-table { border-collapse: collapse; width: 100%; font-size: 13px; }
-th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; vertical-align: top; }
-th:first-child, td:first-child { padding-left: 0; } th:last-child, td:last-child { padding-right: 0; }
-th { color: var(--muted); font-weight: 500; font-size: 12px; position: sticky; top: 0; background: var(--surface); }
-th.sortable { cursor: pointer; } th.sortable:hover { color: var(--fg); }
-td.num, th.num { text-align: right; padding-left: 18px; }
-td.wrap { white-space: normal; max-width: 40ch; }
-tr.click { cursor: pointer; } tr.click:hover td { background: var(--sunken); }
+/* Home */
+.hero { position: relative; overflow: hidden; padding: 30px 32px 28px; border-radius: 16px; border: 1px solid var(--line);
+  background: radial-gradient(120% 140% at 100% 0%, var(--accent-soft) 0%, transparent 45%), var(--surface); }
+.hero::after { content: ""; position: absolute; inset: 0 0 0 55%; pointer-events: none; opacity: 0.55;
+  background-image: radial-gradient(var(--line-strong) 1px, transparent 1.3px); background-size: 14px 14px;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 60%); mask-image: linear-gradient(90deg, transparent, #000 60%); }
+.hero > * { position: relative; z-index: 1; }
+.hero h1 { margin-top: 6px; }
+.hero .meta { margin-top: 8px; color: var(--muted); } .hero .meta b { color: var(--fg); font-weight: 500; }
+.askbox { margin-top: 22px; max-width: 760px; display: flex; align-items: center; gap: 10px; background: var(--raised); border: 1px solid var(--line-strong); border-radius: 12px; padding: 6px 6px 6px 14px; box-shadow: 0 1px 3px rgb(0 0 0 / 0.04); }
+.askbox svg.spark { width: 18px; height: 18px; color: var(--accent); flex: none; }
+.askbox input { border: 0; background: none; padding: 9px 0; flex: 1; font-size: 15.5px; outline: none; }
+.askbox .send { width: 36px; height: 36px; border-radius: 8px; border: 0; background: var(--sunken); color: var(--muted); display: grid; place-items: center; flex: none; }
+.askbox .send svg { width: 16px; height: 16px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; max-width: 760px; }
+.section-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.metric { padding: 18px; display: grid; gap: 4px; align-content: start; }
+.metric .label { font-size: 13.5px; color: var(--muted); }
+.metric .value { font-size: 30px; font-weight: 500; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.metric .delta { font-size: 13px; } .metric .delta.up { color: var(--good); } .metric .delta.down { color: var(--bad); }
+.metric .foot { font-size: 13px; color: var(--muted); }
+.statline { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; } .statline .big { font-size: 30px; font-weight: 500; font-variant-numeric: tabular-nums; } .statline .unit { color: var(--muted); font-size: 15px; }
+.attention { background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 12px; padding: 14px 18px; display: grid; gap: 10px; }
+.attention .title { color: var(--warn); font-weight: 500; display: flex; gap: 8px; align-items: center; }
+.attention .title svg { width: 17px; height: 17px; }
+.attention .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.continue { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.continue .lbl { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13.5px; margin-right: 4px; }
+.continue .lbl svg { width: 15px; height: 15px; }
+.onto-card .body { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 20px; padding: 16px 18px 20px; }
+@media (max-width: 760px) { .onto-card .body { grid-template-columns: 1fr; } }
+.typebars { display: grid; gap: 14px; align-content: start; }
+.typebar .top { display: flex; justify-content: space-between; font-size: 13.5px; } .typebar .top span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
+.typebar .track, .barrow .track { height: 4px; background: var(--sunken); border-radius: 2px; margin-top: 6px; }
+.typebar .fill, .barrow .fill { height: 100%; background: var(--accent); border-radius: 2px; min-width: 4px; }
 
 /* Charts */
 .chart { position: relative; width: 100%; }
 .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
-.chart .axis text { fill: var(--faint); font-size: 11px; font-family: var(--mono); }
-.chart .grid line { stroke: var(--line); stroke-width: 1; }
-.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
-.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; background: var(--c); }
-.tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; box-shadow: 0 4px 16px rgb(0 0 0 / 0.12); min-width: 150px; z-index: 3; }
-.tip .t { color: var(--muted); margin-bottom: 4px; }
-.tip .r { display: flex; justify-content: space-between; gap: 16px; font-variant-numeric: tabular-nums; }
-.tip .r i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; background: var(--c); }
-.barlist { display: grid; gap: 6px; }
-.barrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; font-size: 13px; }
-.barrow .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.barrow .val { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12.5px; }
-.barrow .track { grid-column: 1 / -1; height: 8px; border-radius: 4px; background: var(--sunken); overflow: hidden; }
-.barrow .fill { height: 100%; background: var(--s1); border-radius: 0 4px 4px 0; }
+.axis text { fill: var(--faint); font-size: 11px; font-family: var(--sans); }
+.gridl line { stroke: var(--line); }
+.tip { position: absolute; pointer-events: none; background: var(--raised); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; box-shadow: 0 6px 20px rgb(0 0 0 / 0.10); min-width: 140px; z-index: 3; }
+.tip .t { color: var(--muted); margin-bottom: 2px; } .tip .r { display: flex; justify-content: space-between; gap: 14px; font-variant-numeric: tabular-nums; }
+.barlist { display: grid; gap: 12px; }
+.barrow .top { display: flex; justify-content: space-between; gap: 12px; font-size: 13.5px; }
+.barrow .top .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.barrow .top .val { color: var(--muted); font-variant-numeric: tabular-nums; }
 .barrow.click { cursor: pointer; } .barrow.click:hover .name { color: var(--accent); }
 
-/* Loader */
-.loader { max-width: 760px; margin: 6vh auto 0; display: grid; gap: 18px; }
-.drop { border: 1.5px dashed var(--line); border-radius: 12px; padding: 36px 20px; text-align: center; display: grid; gap: 12px; justify-items: center; background: var(--surface); }
-.drop.over { border-color: var(--accent); background: var(--accent-soft); }
-.filebtn { position: relative; display: inline-block; }
-.filebtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-.steps { display: grid; gap: 6px; font-size: 13px; }
-.step { display: flex; gap: 10px; align-items: baseline; }
-.expect { display: flex; flex-wrap: wrap; gap: 6px; }
+/* Tables */
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { padding-left: 0; } th:last-child, td:last-child { padding-right: 0; }
+th { color: var(--muted); font-weight: 500; font-size: 12.5px; background: var(--surface); position: sticky; top: 0; }
+th.sortable { cursor: pointer; } th.sortable:hover { color: var(--fg); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+tr.click { cursor: pointer; } tr.click:hover td { background: var(--sunken); }
+.grid-scroll { max-height: 64vh; overflow: auto; }
+.datagrid { display: grid; gap: 16px; grid-template-columns: minmax(0, 250px) minmax(0, 1fr); align-items: start; }
+@media (max-width: 900px) { .datagrid { grid-template-columns: 1fr; } }
 
 /* Explorer */
-.explorer { display: grid; gap: 20px; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); align-items: start; }
-@media (max-width: 860px) { .explorer { grid-template-columns: 1fr; } }
-.plist { max-height: 70vh; overflow-y: auto; display: grid; }
-.pitem { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 10px; padding: 8px 6px; border-bottom: 1px solid var(--line); cursor: pointer; border-radius: 6px; }
-.pitem:hover, .pitem[aria-selected="true"] { background: var(--sunken); }
-.pitem .n { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pitem .m { font-size: 12px; color: var(--muted); }
-.pitem .v { font-family: var(--mono); font-size: 12px; color: var(--muted); align-self: center; }
-.graph svg { width: 100%; height: auto; display: block; }
-.graph text { font-size: 11.5px; fill: var(--fg); }
-.graph .lbl-muted { fill: var(--muted); font-size: 10.5px; }
-.graph .node { cursor: default; } .graph .node.go { cursor: pointer; }
-.graph .node.go:hover circle { stroke: var(--accent); stroke-width: 2.5; }
+.typechips { display: flex; flex-wrap: wrap; gap: 8px; }
+.typechips button { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line-strong); background: var(--raised); border-radius: 999px; padding: 6px 13px; font-size: 13.5px; }
+.typechips button[aria-pressed="false"] { opacity: 0.45; }
+.typechips button .n { color: var(--muted); font-variant-numeric: tabular-nums; }
+.graph-wrap { position: relative; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); overflow: hidden; height: min(72vh, 760px); min-height: 420px; }
+#gsvg { width: 100%; height: 100%; display: block; cursor: grab; }
+#gsvg:active { cursor: grabbing; }
+.graph-wrap .lbl { fill: var(--fg); paint-order: stroke; stroke: var(--surface); pointer-events: none; }
+.zoom { position: absolute; left: 16px; bottom: 16px; display: grid; gap: 8px; }
+.zoom button { width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--raised); display: grid; place-items: center; }
+.zoom svg { width: 16px; height: 16px; }
+.inspector { position: absolute; top: 16px; right: 16px; bottom: 16px; width: min(380px, calc(100% - 32px)); background: var(--raised); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 10px 30px rgb(0 0 0 / 0.10); padding: 18px; display: flex; flex-direction: column; gap: 12px; overflow: hidden; box-sizing: border-box; }
+.inspector .name { font-family: var(--serif); font-size: 21px; line-height: 1.2; display: flex; gap: 10px; align-items: baseline; padding-right: 30px; }
+.inspector .name .dot { transform: translateY(-2px); }
+.inspector .rel { overflow-y: auto; display: grid; align-content: start; }
+.inspector .rel button { display: flex; justify-content: space-between; gap: 10px; align-items: center; background: none; border: 0; padding: 8px 4px; border-radius: 6px; text-align: left; }
+.inspector .rel button:hover { background: var(--sunken); }
+.inspector .rel .nm { display: flex; gap: 10px; align-items: center; overflow: hidden; } .inspector .rel .nm span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inspector .rel .ty { color: var(--muted); font-size: 12.5px; flex: none; }
+.x-btn { position: absolute; top: 14px; right: 14px; }
+.drawer-back { position: fixed; inset: 0; background: rgb(30 30 25 / 0.28); backdrop-filter: blur(3px); z-index: 20; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(620px, 100%); background: var(--raised); z-index: 21; box-shadow: -10px 0 40px rgb(0 0 0 / 0.15); display: flex; flex-direction: column; border-radius: 14px 0 0 14px; }
+.drawer header { padding: 22px 26px 18px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.drawer header .display { font-size: 26px; line-height: 1.2; word-break: break-word; }
+.drawer .body { overflow-y: auto; padding: 18px 26px 32px; display: grid; gap: 18px; align-content: start; }
+.kv { display: grid; grid-template-columns: minmax(110px, 0.8fr) minmax(0, 1.2fr); }
+.kv > div { padding: 11px 0; border-bottom: 1px solid var(--line); min-width: 0; word-break: break-word; }
+.kv .k { color: var(--muted); padding-right: 12px; }
+.related button { display: flex; justify-content: space-between; width: 100%; background: none; border: 0; border-bottom: 1px solid var(--line); padding: 12px 0; text-align: left; font-weight: 500; }
+.related button:hover { color: var(--accent); }
+.related .ty { color: var(--muted); font-weight: 400; font-size: 13px; }
 
-/* Ask */
-.ask { display: grid; gap: 16px; max-width: 900px; width: 100%; margin: 0 auto; }
-.thread { display: grid; gap: 18px; }
-.msg-user { justify-self: end; background: var(--accent-soft); padding: 10px 14px; border-radius: 12px 12px 2px 12px; max-width: 75ch; white-space: pre-wrap; }
+/* Object types canvas */
+.canvas { position: relative; border: 1px solid var(--line); border-radius: 16px; padding: 40px 36px; background-color: var(--surface); background-image: radial-gradient(var(--line-strong) 1px, transparent 1.3px); background-size: 22px 22px; overflow-x: auto; }
+.canvas .rows { display: grid; gap: 84px; position: relative; z-index: 1; min-width: 860px; }
+.canvas .row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 32px; }
+.tcard { min-width: 0; background: var(--raised); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px 14px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 1px 2px rgb(0 0 0 / 0.04); cursor: pointer; box-sizing: border-box; }
+.tcard:hover { border-color: var(--faint); }
+.tcard.activity { border-style: dashed; background: var(--surface); }
+.tcard .tt { font-size: 18px; font-weight: 500; } .tcard .meta { font-size: 13px; color: var(--muted); }
+.tcard .meta code { font-size: 12px; }
+.tcard .desc { font-size: 14px; opacity: 0.85; }
+.tcard .tag { align-self: flex-start; font-size: 12.5px; border: 1px solid var(--line-strong); border-radius: 999px; padding: 2px 10px; color: var(--muted); }
+.tcard .src { display: flex; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 8px; font-size: 13.5px; }
+.tcard .src { gap: 10px; } .tcard .src span:first-child { display: flex; gap: 8px; align-items: center; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; } .tcard .src span:last-child { color: var(--muted); font-size: 12.5px; flex: none; }
+.tcard .src svg { width: 15px; height: 15px; color: var(--muted); }
+.canvas svg.links { position: absolute; left: 0; top: 0; pointer-events: none; z-index: 0; overflow: visible; }
+.canvas svg.links path { fill: none; stroke: var(--faint); stroke-width: 1.4; }
+.canvas .elabel { position: absolute; z-index: 2; transform: translate(-50%, -50%); background: var(--raised); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+.canvas-foot { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.canvas-foot .legend { display: flex; gap: 16px; }
+.canvas-foot .legend span::before { content: ""; display: inline-block; width: 22px; border-top: 1.5px solid var(--faint); margin-right: 6px; vertical-align: middle; }
+.canvas-foot .legend span.dash::before { border-top-style: dashed; }
+
+/* Analyst */
+.ask { display: grid; gap: 18px; max-width: 880px; }
+.thread { display: grid; gap: 22px; }
+.msg-user { justify-self: end; background: var(--accent-soft); padding: 10px 15px; border-radius: 14px 14px 4px 14px; max-width: 75ch; white-space: pre-wrap; }
 .msg-bot { display: grid; gap: 10px; }
-.answer p { margin: 0 0 8px; } .answer ul, .answer ol { margin: 0 0 8px; padding-left: 20px; }
-.answer pre { background: var(--sunken); padding: 10px; border-radius: 6px; overflow-x: auto; font-size: 12.5px; }
-.toolcall { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
-.toolcall summary { padding: 8px 12px; cursor: pointer; font-size: 12.5px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+.answer p { margin: 0 0 8px; } .answer ul { margin: 0 0 8px; padding-left: 20px; }
+.answer pre { background: var(--sunken); padding: 10px; border-radius: 8px; overflow-x: auto; font-size: 12.5px; }
+.toolcall { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.toolcall summary { padding: 9px 12px; cursor: pointer; font-size: 13px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
 .toolcall .body { padding: 0 12px 12px; display: grid; gap: 8px; }
-.toolcall pre { margin: 0; background: var(--sunken); padding: 8px 10px; border-radius: 6px; overflow-x: auto; font-size: 12px; white-space: pre-wrap; }
-.composer { display: grid; gap: 8px; position: sticky; bottom: 0; background: var(--bg); padding-block: 10px; }
-.composer textarea { width: 100%; box-sizing: border-box; min-height: 56px; resize: vertical; }
-.starters { display: flex; flex-wrap: wrap; gap: 8px; }
-.starters button { border: 1px solid var(--line); background: var(--surface); color: var(--fg); border-radius: 999px; padding: 6px 12px; font-size: 13px; text-align: left; }
-.starters button:hover { border-color: var(--accent); }
+.toolcall pre { margin: 0; background: var(--sunken); padding: 9px 11px; border-radius: 8px; font-size: 12px; white-space: pre-wrap; font-family: var(--mono); }
 .thinking { color: var(--muted); font-style: italic; }
+.composer { position: sticky; bottom: 0; background: var(--bg); padding-block: 12px; display: grid; gap: 10px; }
 
-/* Tables view */
-.tables { display: grid; gap: 20px; grid-template-columns: minmax(0, 240px) minmax(0, 1fr); align-items: start; }
-@media (max-width: 860px) { .tables { grid-template-columns: 1fr; } }
-.tlist button { display: flex; justify-content: space-between; gap: 10px; width: 100%; text-align: left; background: none; border: 0; border-radius: 6px; padding: 7px 8px; color: var(--fg); }
-.tlist button[aria-current="true"], .tlist button:hover { background: var(--sunken); }
-.tlist .c { font-family: var(--mono); font-size: 12px; color: var(--muted); }
-.pager { display: flex; gap: 10px; align-items: center; font-size: 12.5px; color: var(--muted); flex-wrap: wrap; }
-.grid-scroll { max-height: 64vh; overflow: auto; }
-
-@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+/* Loader */
+.loader { max-width: 760px; display: grid; gap: 20px; }
+.drop { border: 1.5px dashed var(--line-strong); border-radius: 14px; padding: 40px 20px; text-align: center; display: grid; gap: 12px; justify-items: center; background: var(--surface); }
+.drop.over { border-color: var(--accent); background: var(--accent-soft); }
+.filebtn { position: relative; overflow: hidden; } .filebtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.expect { display: flex; flex-wrap: wrap; gap: 6px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
 </style>
 
-<header class="bar">
-  <div class="bar-inner">
-    <div class="brand"><span class="brand-mark" aria-hidden="true"></span>Ark Ledger Lens</div>
-    <nav class="tabs" aria-label="Sections">
-      <button data-view="home">Home</button>
-      <button data-view="explorer">Explorer</button>
-      <button data-view="ask">Ask</button>
-      <button data-view="tables">Tables</button>
-    </nav>
-    <div class="snapshot" id="snapshot"></div>
-  </div>
-</header>
-<main id="main"></main>
+<div class="app">
+  <aside class="side" aria-label="Navigation">
+    <div class="wordmark"><b>ark</b>ledgerlens</div>
+    <div class="ws"><span class="badge">AD</span><div><div class="t">Ark dev ledger</div><div class="s" id="ws-sub">No files loaded</div></div></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="side-foot"><span class="av" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="5" width="16" height="11" rx="2"/><path d="M2 19h20"/></svg></span>
+      <div><div class="t">This browser</div><div class="s">Local files · nothing uploaded</div></div></div>
+  </aside>
+  <main id="main"></main>
+</div>
+<div id="overlay"></div>
 
 <script>
 "use strict";
@@ -180,9 +267,12 @@ const WASM_URL = new URL("duckdb-eh.gz.wasm", location.href).href;
 const EXT_REPO = new URL("ext", location.href).href;
 
 const state = {
-  view: "home", db: null, conn: null, sample: null, tables: new Map(), manifest: null,
-  home: { range: 90 }, explorer: { q: "", kind: "all", party: null }, ask: { turns: [], busy: false, ctl: null },
+  view: "loader", db: null, conn: null, sample: null, tables: new Map(), manifest: null,
+  home: { range: 90 }, party: null,
+  explorer: { mode: "graph", hidden: new Set(), selected: null, q: "" },
+  ask: { threads: [], current: null, busy: false, ctl: null },
   grid: { table: null, filter: "", sort: null, desc: false, page: 0 },
+  recent: [],
 };
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -212,7 +302,6 @@ async function startEngine() {
   await conn.query("LOAD parquet");
   state.db = db; state.conn = conn;
 }
-// Arrow hands back BIGINT as BigInt and dates as epoch numbers; flatten to JSON-safe values.
 const plain = (v) => typeof v === "bigint" ? (Number.isSafeInteger(Number(v)) ? Number(v) : v.toString())
   : v instanceof Date ? v.toISOString() : (v && typeof v === "object" && typeof v.toJSON === "function") ? v.toJSON() : v;
 async function q(sql) {
@@ -222,30 +311,81 @@ async function q(sql) {
   const val = (k, v) => typeof v === "number" && kind[k] ? (kind[k] === "date" ? new Date(v).toISOString().slice(0, 10) : new Date(v).toISOString().replace("T", " ").slice(0, 19)) : plain(v);
   return res.toArray().map((r) => Object.fromEntries(Object.entries(r.toJSON()).map(([k, v]) => [k, val(k, v)])));
 }
+const one = async (sql) => (await q(sql))[0] || {};
 // Client accounts are credit-normal: the ledger stores money held for a client as a
 // negative balance. Shown to people, it is flipped so "held for them" reads positive.
 const held = (addr, v) => (String(addr || "").startsWith("clients:") ? -1 : 1) * (Number(v) || 0);
-const one = async (sql) => (await q(sql))[0] || {};
 
 // ---------- Formatting ----------
 const nf = new Intl.NumberFormat("en-US");
 function money(v, { compact = true } = {}) {
   const n = Number(v); if (!Number.isFinite(n)) return "–";
-  if (!compact || Math.abs(n) < 10000) return (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString("en-US", { maximumFractionDigits: 2, minimumFractionDigits: Math.abs(n) < 100 ? 2 : 0 });
+  if (!compact || Math.abs(n) < 10000) return (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString("en-US", { maximumFractionDigits: 2, minimumFractionDigits: Math.abs(n) < 100 && n % 1 ? 2 : 0 });
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 }).format(n);
 }
 const count = (v) => Number.isFinite(Number(v)) ? nf.format(Number(v)) : "–";
-const pct = (v) => (v > 0 ? "+" : "") + (v * 100).toFixed(1) + "%";
-const kycChip = (s) => { const k = String(s || "").toLowerCase(); const cls = /approv|clear|pass|verified|active/.test(k) ? "good" : /pend|review|progress/.test(k) ? "warn" : /reject|fail|block|denied/.test(k) ? "bad" : ""; return s ? `<span class="chip ${cls}">${esc(s)}</span>` : ""; };
+const compactN = (v) => new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(v);
 function cell(v) {
-  if (v === null || v === undefined) return '<span style="color:var(--faint)">–</span>';
+  if (v === null || v === undefined) return '<span style="color:var(--faint)">—</span>';
   if (typeof v === "number") return Number.isInteger(v) ? nf.format(v) : v.toLocaleString("en-US", { maximumFractionDigits: 4 });
   if (typeof v === "object") return esc(JSON.stringify(v));
   return esc(v);
 }
+const titleCase = (s) => String(s).replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+const plural = (w, n = 2) => n === 1 ? w : /[^aeiou]y$/.test(w) ? w.slice(0, -1) + "ies" : w + "s";
+const day = (d) => new Date(d + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+const ICON = {
+  home: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>',
+  onto: '<path d="M12 3l3.5 6h-7z"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><circle cx="17.5" cy="17.5" r="3.5"/>',
+  data: '<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>',
+  spark: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6"/>',
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
+  up: '<path d="M12 19V5M5 12l7-7 7 7"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>', minus: '<path d="M5 12h14"/>', fit: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
+  x: '<path d="M6 6l12 12M18 6L6 18"/>', arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>', clock: '<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>',
+  file: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>', alert: '<circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.5"/>',
+  db: '<ellipse cx="12" cy="6" rx="7" ry="2.5"/><path d="M5 6v12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V6"/>',
+  shape: '<path d="M12 3l3.5 6h-7z"/><circle cx="17" cy="17" r="3"/><rect x="4" y="14" width="6" height="6" rx="1"/>',
+  chat: '<path d="M4 5h16v11H9l-5 4z"/>',
+};
+const icon = (n, cls = "") => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[n]}</svg>`;
+
+// ---------- Object types: what each exported dataset is ----------
+// One row per dataset: display name, its key, the color it wears, and its
+// ontology role (hub record, related record, or activity stream).
+const TYPES = {
+  parties: { name: "Party", key: "party_id", color: "--t-party", role: "hub", label: "party_name" },
+  transactions: { name: "Transaction", key: "txn_id", color: "--t-txn", role: "hub", label: "transaction_type" },
+  accounts: { name: "Account", key: "account_address", color: "--t-acct", role: "record", label: "account_address" },
+  postings: { name: "Posting", key: "posting_id", color: "--t-other", role: "activity" },
+  daily_volume: { name: "Daily volume", key: null, color: "--t-other", role: "activity" },
+  revenue: { name: "Revenue", key: null, color: "--t-other", role: "activity" },
+  fees: { name: "Fee", key: "fee_id", color: "--t-fee", role: "record", label: "fee_id" },
+  payment_corridors: { name: "Payment corridor", key: null, color: "--t-other", role: "activity" },
+  payments_in_flight: { name: "Payment in flight", key: "payment_id", color: "--t-pay", role: "record", label: "payment_id" },
+  reserve_positions: { name: "Reserve position", key: "lot_id", color: "--t-other", role: "record", label: "instrument_id" },
+  senders: { name: "Sender", key: "sender_id", color: "--t-sender", role: "record", label: "sender_name" },
+  beneficial_owners: { name: "Beneficial owner", key: "owner_id", color: "--t-owner", role: "record", label: "owner_name" },
+  ownership_links: { name: "Ownership link", key: null, color: "--t-other", role: "record" },
+  ownership_nodes: { name: "Ownership node", key: "owner_node_id", color: "--t-other", role: "record", label: "legal_name" },
+};
+const typeOf = (t) => TYPES[t] || { name: titleCase(t), key: null, color: "--t-other", role: "record" };
+const typeColor = (t) => `var(${typeOf(t).color})`;
+// A dataset references a hub (parties, transactions) when it carries the hub's key
+// column; ownership links also reference ownership nodes.
+function references() {
+  const targets = [["parties", "party_id"], ["transactions", "txn_id"], ["ownership_nodes", "owner_node_id"]];
+  const out = [];
+  for (const [t] of state.tables) for (const [u, col] of targets)
+    if (u !== t && has(u) && hasCol(t, col) && !(u === "ownership_nodes" && t !== "ownership_links"))
+      out.push({ from: t, to: u, dashed: typeOf(t).role === "activity" });
+  return out;
+}
 
 // ---------- Loading files ----------
-const EXPECTED = ["parties", "accounts", "transactions", "postings", "daily_volume", "revenue", "fees", "payment_corridors", "payments_in_flight", "reserve_positions", "senders", "beneficial_owners", "ownership_links", "ownership_nodes"];
+const EXPECTED = Object.keys(TYPES);
 async function loadFiles(list, status) {
   const files = [...(list || [])];
   if (!files.length) return status("No files came through. Try dragging them onto the box instead.");
@@ -258,36 +398,31 @@ async function loadFiles(list, status) {
       await state.db.registerFileBuffer(f.name, new Uint8Array(await f.arrayBuffer()));
       // Materialised once so every later query reads from memory, not the Parquet bytes.
       await state.conn.query(`CREATE OR REPLACE TABLE ${qid(name)} AS SELECT * FROM read_parquet(${lit(f.name)})`);
-      const cols = (await q(`SELECT column_name AS name, data_type AS type FROM information_schema.columns WHERE table_name = ${lit(name)} ORDER BY ordinal_position`));
+      const cols = await q(`SELECT column_name AS name, data_type AS type FROM information_schema.columns WHERE table_name = ${lit(name)} ORDER BY ordinal_position`);
       const rows = (await one(`SELECT count(*) AS n FROM ${qid(name)}`)).n;
       state.tables.set(name, { rows, cols });
-    } catch (e) {
-      return status(`Could not load ${f.name}: ${e.message || e}`);
-    }
+    } catch (e) { return status(`Could not load ${f.name}: ${e.message || e}`); }
   }
   status("");
-  if (state.tables.size) { renderSnapshot(); go(location.hash.slice(1) || "home"); }
+  if (state.tables.size) { graphCache = null; go(location.hash.slice(1) || "home"); }
 }
 
 function renderLoader(msg = "") {
-  setTabs(false);
+  state.view = "loader"; renderNav();
   $("#main").innerHTML = `
   <div class="loader">
-    <div>
-      <div class="eyebrow">Ark dev ledger</div>
-      <h1>Load your export to begin</h1>
-      <p class="sub">Choose every file in <code>ark/out/</code> from the demo branch's export. The files are read here in your browser and never uploaded. Only the results of questions you ask go to Claude.</p>
-    </div>
+    <div><div class="eyebrow">Ark dev ledger</div><h1>Load your export to begin</h1>
+      <p class="lede">Choose every file in <code>ark/out/</code>. They're read here in your browser and never uploaded; only the results of questions you ask go to Claude.</p></div>
     <div class="drop" id="drop">
-      <div><b>Drop the Parquet files here</b></div>
-      <div class="sub" style="margin:0">or</div>
-      <label class="btn filebtn">Choose files<input type="file" id="pick" multiple accept=".parquet,.json"></label>
-      <div class="sub" id="loadstatus" aria-live="polite" style="margin:0">${esc(msg)}</div>
+      <div style="font-size:16px;font-weight:500">Drop the Parquet files here</div>
+      <div class="muted">or</div>
+      <label class="btn dark filebtn">Choose files<input type="file" id="pick" multiple accept=".parquet,.json"></label>
+      <div class="muted small" id="loadstatus" aria-live="polite">${esc(msg)}</div>
     </div>
-    <div class="panel">
+    <div class="card pad" style="display:grid;gap:10px">
       <h2>What the export contains</h2>
-      <div class="expect">${EXPECTED.map((t) => `<span class="chip">${t}</span>`).join("")}</div>
-      <p class="sub" style="margin:0">Any subset works; sections that need a missing file say so. Including <code>manifest.json</code> shows when the export was taken. To refresh the files, run <code>./ark/demo.sh</code> or the export step alone.</p>
+      <div class="expect">${EXPECTED.map((t) => `<span class="pill"><span class="dot" style="--c:${typeColor(t)}"></span>${t}</span>`).join("")}</div>
+      <p class="muted small" style="margin:0">Any subset works; views that need a missing file say so. Include <code>manifest.json</code> to show when the export was taken.</p>
     </div>
   </div>`;
   const status = (s) => { const el = $("#loadstatus"); if (el) el.textContent = s; };
@@ -299,106 +434,78 @@ function renderLoader(msg = "") {
   drop.addEventListener("drop", (e) => { e.preventDefault(); if (state.conn) loadFiles(e.dataTransfer.files, status); });
 }
 
-function renderSnapshot() {
-  const m = state.manifest;
-  const when = m?.exported_at ? new Date(m.exported_at).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) : null;
-  $("#snapshot").innerHTML = `<span>${state.tables.size} datasets</span>${when ? `<span>Exported ${esc(when)}</span>` : ""}<span class="chip">dev</span><button class="link" id="reload" style="background:none;border:0;padding:0">Load other files</button>`;
-  $("#reload").onclick = () => { state.tables.clear(); state.manifest = null; $("#snapshot").innerHTML = ""; renderLoader(); };
-}
-
 // ---------- Navigation ----------
-function setTabs(enabled) {
-  for (const b of document.querySelectorAll("nav.tabs button")) {
-    b.disabled = !enabled;
-    b.setAttribute("aria-current", enabled && b.dataset.view === state.view ? "page" : "false");
-  }
+const VIEWS = { home: renderHome, explorer: renderExplorer, types: renderTypes, data: renderData, analyst: renderAnalyst, party: renderPartyPage };
+function renderNav() {
+  const v = state.view, on = state.tables.size > 0, dis = on ? "" : "disabled";
+  const cur = (yes) => (yes ? 'aria-current="page"' : "");
+  $("#nav").innerHTML = `
+    <button class="nav-item" data-go="home" ${cur(v === "home")} ${dis}>${icon("home")}<span>Home</span></button>
+    <button class="nav-item" data-go="explorer" ${cur(["explorer", "types", "party"].includes(v))} ${dis}>${icon("onto")}<span>Ontology</span></button>
+    <div class="nav-sub"><button data-go="explorer" ${cur(v === "explorer" || v === "party")} ${dis}>Explorer</button><button data-go="types" ${cur(v === "types")} ${dis}>Object types</button></div>
+    <button class="nav-item" data-go="data" ${cur(v === "data")} ${dis}>${icon("data")}<span>Data</span></button>
+    <div class="nav-row"><button class="nav-item" data-go="analyst" ${cur(v === "analyst")} ${dis}>${icon("spark")}<span>Analyst</span></button><button class="icon-btn" data-new-thread title="New question" aria-label="New question" ${dis}>${icon("edit")}</button></div>
+    <div class="nav-sub">${state.ask.threads.slice(-6).reverse().map((t) => `<button data-thread="${t.id}" ${cur(v === "analyst" && state.ask.current === t.id)} title="${esc(t.title)}">${esc(t.title)}</button>`).join("")}</div>`;
+  const rows = [...state.tables.values()].reduce((a, t) => a + t.rows, 0);
+  $("#ws-sub").textContent = on ? `${state.tables.size} datasets · ${compactN(rows)} rows` : "No files loaded";
 }
-document.querySelectorAll("nav.tabs button").forEach((b) => b.addEventListener("click", () => go(b.dataset.view)));
-const VIEWS = { home: renderHome, explorer: renderExplorer, ask: renderAsk, tables: renderTables };
-function go(view, opts = {}) {
+document.addEventListener("click", (e) => {
+  const g = e.target.closest("[data-go]"); if (g) { if (!g.disabled) go(g.dataset.go); return; }
+  const th = e.target.closest("[data-thread]"); if (th) { state.ask.current = th.dataset.thread; return go("analyst"); }
+  if (e.target.closest("[data-new-thread]")) { state.ask.current = null; return go("analyst"); }
+  const p = e.target.closest("[data-party]"); if (p && p.dataset.party) return openParty(p.dataset.party);
+  const t = e.target.closest("[data-table]"); if (t) { Object.assign(state.grid, { table: t.dataset.table, filter: "", sort: null, page: 0 }); return go("data"); }
+});
+function go(view) {
   if (!state.tables.size) return renderLoader();
   state.view = VIEWS[view] ? view : "home";
-  try { history.replaceState(null, "", "#" + state.view); } catch {}
-  setTabs(true);
-  Object.assign(state[state.view === "tables" ? "grid" : state.view] || {}, opts);
+  try { history.replaceState(null, "", "#" + (state.view === "party" ? "explorer" : state.view)); } catch {}
+  renderNav(); closeDrawer();
   window.scrollTo(0, 0);
-  VIEWS[state.view]().catch((e) => { $("#main").innerHTML = `<div class="panel"><h2>Something went wrong</h2><p class="sub">${esc(e.message || e)}</p></div>`; });
+  VIEWS[state.view]().catch((e) => { $("#main").innerHTML = `<div class="card pad"><h2>Something went wrong</h2><p class="muted">${esc(e.message || e)}</p></div>`; });
 }
-const partyLink = (id, name) => `<span class="link" data-party="${esc(id)}">${esc(name || id)}</span>`;
-document.addEventListener("click", (e) => {
-  const p = e.target.closest("[data-party]");
-  if (p && p.dataset.party) go("explorer", { party: p.dataset.party });
-});
+function remember(kind, id, label) {
+  state.recent = [{ kind, id, label }, ...state.recent.filter((r) => !(r.kind === kind && r.id === id))].slice(0, 5);
+}
+function openParty(id) { state.party = id; go("party"); }
 
 // ---------- Charts ----------
 function niceMax(v) { if (v <= 0) return 1; const p = Math.pow(10, Math.floor(Math.log10(v))); const m = v / p; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10) * p; }
-const tickFmt = (v) => new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(v);
-
-// Line chart over dates with a crosshair tooltip. series: [{name, color, values:[number]}]
-function lineChart(el, labels, series, { fmt = money, height = 240 } = {}) {
-  const W = 720, H = height, L = 48, R = 12, T = 12, B = 26;
-  const max = niceMax(Math.max(1, ...series.flatMap((s) => s.values)));
-  const x = (i) => L + (labels.length < 2 ? 0 : (i / (labels.length - 1)) * (W - L - R));
-  const y = (v) => T + (1 - v / max) * (H - T - B);
-  const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => f * max);
-  const xt = labels.length ? [0, Math.floor((labels.length - 1) / 2), labels.length - 1] : [];
-  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(series.map((s) => s.name).join(" and "))} over time">
-    <g class="grid">${ticks.map((t) => `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}"/>`).join("")}</g>
-    <g class="axis">${ticks.map((t) => `<text x="${L - 8}" y="${y(t) + 4}" text-anchor="end">${tickFmt(t)}</text>`).join("")}
-      ${xt.map((i) => `<text x="${x(i)}" y="${H - 6}" text-anchor="${i === 0 ? "start" : i === labels.length - 1 ? "end" : "middle"}">${esc(labels[i])}</text>`).join("")}</g>
-    ${series.map((s) => `<path d="${s.values.map((v, i) => (i ? "L" : "M") + x(i).toFixed(1) + " " + y(v).toFixed(1)).join("")}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`).join("")}
-    <line class="xh" x1="0" x2="0" y1="${T}" y2="${H - B}" stroke="var(--faint)" stroke-dasharray="3 3" visibility="hidden"/>
-    ${series.map((s, k) => `<circle class="dot${k}" r="4" fill="${s.color}" stroke="var(--surface)" stroke-width="2" visibility="hidden"/>`).join("")}
-    <rect x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent" class="hit"/>
-  </svg><div class="tip" hidden></div>`;
-  const svg = $("svg", el), tip = $(".tip", el), xh = $(".xh", el);
-  const move = (ev) => {
-    const r = svg.getBoundingClientRect(); const px = ((ev.clientX - r.left) / r.width) * W;
-    const i = Math.max(0, Math.min(labels.length - 1, Math.round(((px - L) / (W - L - R)) * (labels.length - 1))));
-    xh.setAttribute("x1", x(i)); xh.setAttribute("x2", x(i)); xh.setAttribute("visibility", "visible");
-    series.forEach((s, k) => { const d = $(".dot" + k, el); d.setAttribute("cx", x(i)); d.setAttribute("cy", y(s.values[i])); d.setAttribute("visibility", "visible"); });
-    tip.innerHTML = `<div class="t">${esc(labels[i])}</div>` + series.map((s) => `<div class="r"><span><i style="--c:${s.color}"></i>${esc(s.name)}</span><b>${fmt(s.values[i])}</b></div>`).join("");
-    tip.hidden = false;
-    const left = (x(i) / W) * r.width; tip.style.left = Math.min(left + 12, r.width - tip.offsetWidth) + "px"; tip.style.top = "8px";
-  };
-  const hit = $(".hit", el);
-  hit.addEventListener("pointermove", move);
-  hit.addEventListener("pointerleave", () => { tip.hidden = true; xh.setAttribute("visibility", "hidden"); series.forEach((_, k) => $(".dot" + k, el).setAttribute("visibility", "hidden")); });
-}
-// Vertical columns with a per-bar tooltip, one series.
-function columnChart(el, labels, values, { fmt = money, color = "var(--s1)" } = {}) {
-  const W = 720, H = 220, L = 48, R = 8, T = 10, B = 26, gap = 2;
-  const max = niceMax(Math.max(1, ...values)); const n = values.length || 1;
-  // Few periods would make slabs; cap the column width and keep the slot spacing.
-  const slot = (W - L - R) / n, bw = Math.min(slot, 56); const y = (v) => T + (1 - v / max) * (H - T - B);
+// Area chart over dates: one series, soft fill, emphasized endpoint, crosshair tooltip.
+function areaChart(el, labels, values, { fmt = money, height = 220, name = "Volume" } = {}) {
+  const W = 760, H = height, L = 44, R = 14, T = 14, B = 28;
+  const max = niceMax(Math.max(1, ...values)), n = values.length;
+  const x = (i) => L + (n < 2 ? 0 : (i / (n - 1)) * (W - L - R)), y = (v) => T + (1 - v / max) * (H - T - B);
   const ticks = [0, 0.5, 1].map((f) => f * max);
-  const step = Math.ceil(n / 8);
-  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Columns by period">
-    <g class="grid">${ticks.map((t) => `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}"/>`).join("")}</g>
-    <g class="axis">${ticks.map((t) => `<text x="${L - 8}" y="${y(t) + 4}" text-anchor="end">${tickFmt(t)}</text>`).join("")}
-      ${labels.map((l, i) => i % step ? "" : `<text x="${L + slot * i + slot / 2}" y="${H - 6}" text-anchor="middle">${esc(l)}</text>`).join("")}</g>
-    ${values.map((v, i) => { const h = Math.max(0, H - B - y(v)); const r = Math.min(4, (bw - gap) / 2, h);
-      const x0 = L + slot * i + (slot - bw) / 2 + gap / 2, w = bw - gap, y0 = H - B - h;
-      return `<path data-i="${i}" fill="${color}" d="M${x0} ${H - B}V${y0 + r}Q${x0} ${y0} ${x0 + r} ${y0}H${x0 + w - r}Q${x0 + w} ${y0} ${x0 + w} ${y0 + r}V${H - B}Z"/>`; }).join("")}
-    ${values.map((_, i) => `<rect data-i="${i}" x="${L + slot * i}" y="${T}" width="${slot}" height="${H - T - B}" fill="transparent"/>`).join("")}
-  </svg><div class="tip" hidden></div>`;
-  const svg = $("svg", el), tip = $(".tip", el);
-  svg.querySelectorAll("rect[data-i]").forEach((rc) => {
-    rc.addEventListener("pointerenter", () => {
-      const i = +rc.dataset.i; const r = svg.getBoundingClientRect();
-      tip.innerHTML = `<div class="t">${esc(labels[i])}</div><div class="r"><b>${fmt(values[i])}</b></div>`; tip.hidden = false;
-      tip.style.left = Math.min(((L + slot * i + slot) / W) * r.width + 6, r.width - tip.offsetWidth) + "px"; tip.style.top = "8px";
-    });
-    rc.addEventListener("pointerleave", () => { tip.hidden = true; });
+  const xt = n ? [0, Math.floor((n - 1) / 2), n - 1] : [];
+  const line = values.map((v, i) => (i ? "L" : "M") + x(i).toFixed(1) + " " + y(v).toFixed(1)).join("");
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(name)} over time">
+    <g class="gridl">${ticks.map((t) => `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}"/>`).join("")}</g>
+    <g class="axis">${ticks.map((t) => `<text x="${L - 10}" y="${y(t) + 4}" text-anchor="end">${compactN(t)}</text>`).join("")}
+      ${xt.map((i) => `<text x="${x(i)}" y="${H - 6}" text-anchor="${i === 0 ? "start" : i === n - 1 ? "end" : "middle"}">${esc(labels[i])}</text>`).join("")}</g>
+    ${n ? `<path d="${line}L${x(n - 1)} ${y(0)}L${x(0)} ${y(0)}Z" fill="var(--accent-fill)"/><path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>
+    <circle cx="${x(n - 1)}" cy="${y(values[n - 1])}" r="4" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>` : ""}
+    <line class="xh" y1="${T}" y2="${H - B}" stroke="var(--faint)" stroke-dasharray="3 3" visibility="hidden"/>
+    <circle class="hd" r="4.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="2" visibility="hidden"/>
+    <rect class="hit" x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent"/></svg><div class="tip" hidden></div>`;
+  const svg = $("svg", el), tip = $(".tip", el), xh = $(".xh", el), hd = $(".hd", el), hit = $(".hit", el);
+  hit.addEventListener("pointermove", (ev) => {
+    if (!n) return;
+    const r = svg.getBoundingClientRect(), px = ((ev.clientX - r.left) / r.width) * W;
+    const i = Math.max(0, Math.min(n - 1, Math.round(((px - L) / (W - L - R)) * (n - 1))));
+    xh.setAttribute("x1", x(i)); xh.setAttribute("x2", x(i)); xh.setAttribute("visibility", "visible");
+    hd.setAttribute("cx", x(i)); hd.setAttribute("cy", y(values[i])); hd.setAttribute("visibility", "visible");
+    tip.innerHTML = `<div class="t">${esc(labels[i])}</div><div class="r"><span>${esc(name)}</span><b>${fmt(values[i])}</b></div>`; tip.hidden = false;
+    tip.style.left = Math.min((x(i) / W) * r.width + 12, r.width - tip.offsetWidth) + "px"; tip.style.top = "6px";
   });
+  hit.addEventListener("pointerleave", () => { tip.hidden = true; xh.setAttribute("visibility", "hidden"); hd.setAttribute("visibility", "hidden"); });
 }
-// Horizontal bar list: readable names, values as text, bar for magnitude.
 function barList(rows, { fmt = money, party = false } = {}) {
   if (!rows.length) return `<div class="empty">No rows for this period.</div>`;
   const max = Math.max(...rows.map((r) => Math.abs(Number(r.value)) || 0), 1);
-  return `<div class="barlist">${rows.map((r) => `<div class="barrow${party && r.id ? " click" : ""}" ${party && r.id ? `data-party="${esc(r.id)}"` : ""} title="${esc(r.label)}: ${esc(fmt(r.value))}">
-    <span class="name">${esc(r.label)}</span><span class="val">${fmt(r.value)}</span>
-    <span class="track"><span class="fill" style="width:${(Math.abs(Number(r.value)) / max * 100).toFixed(1)}%"></span></span></div>`).join("")}</div>`;
+  return `<div class="barlist">${rows.map((r) => `<div class="barrow${party && r.id ? " click" : ""}" ${party && r.id ? `data-party="${esc(r.id)}"` : ""}>
+    <div class="top"><span class="name">${esc(r.label)}</span><span class="val">${fmt(r.value)}</span></div>
+    <div class="track"><div class="fill" style="width:${(Math.abs(Number(r.value)) / max * 100).toFixed(1)}%"></div></div></div>`).join("")}</div>`;
 }
 function table(rows, cols, { party = null, numeric = [] } = {}) {
   if (!rows.length) return `<div class="empty">No rows.</div>`;
@@ -410,318 +517,393 @@ function table(rows, cols, { party = null, numeric = [] } = {}) {
 const missing = (t) => `<div class="empty">Needs <code>${t}.parquet</code>, which isn't loaded.</div>`;
 
 // ---------- Home ----------
+function greeting() { const h = new Date().getHours(); return h < 5 ? "Good evening" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"; }
+function starters() {
+  const s = [];
+  if (has("accounts")) s.push("Which customers hold the largest balances?");
+  if (has("daily_volume")) s.push("How has settled volume trended over the last three months?");
+  if (has("revenue") || has("fees")) s.push("Which customers generated the most fee revenue?");
+  if (has("payments_in_flight")) s.push("What's stuck in flight right now?");
+  if (has("beneficial_owners")) s.push("Which customers have an owner with more than 50% stake?");
+  if (has("payment_corridors")) s.push("What are our biggest payment corridors?");
+  return s;
+}
 async function renderHome() {
-  const s = state.home;
+  const s = state.home, m = state.manifest;
+  const totalRows = [...state.tables.values()].reduce((a, t) => a + t.rows, 0);
   $("#main").innerHTML = `
-  <div><div class="eyebrow">Overview</div><h1>Ark on the dev ledger</h1><p class="sub" id="homesub"></p></div>
-  <div class="tiles" id="tiles"></div>
+  <section class="hero">
+    <div class="eyebrow">${new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</div>
+    <h1>${greeting()}</h1>
+    <div class="meta"><b>Ark dev ledger</b> · ${state.tables.size} datasets · ${has("parties") ? count(state.tables.get("parties").rows) + " parties · " : ""}${count(totalRows)} rows${m?.exported_at ? " · exported " + esc(new Date(m.exported_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })) : ""}</div>
+    <form class="askbox" id="heroask">${icon("spark", "spark")}<input id="heroq" placeholder="Ask anything about the ledger..." aria-label="Ask a question" autocomplete="off"><button class="send" aria-label="Ask">${icon("up")}</button></form>
+    <div class="chips">${starters().slice(0, 3).map((t) => `<button class="pill" data-ask="${esc(t)}">${esc(t)}</button>`).join("")}</div>
+  </section>
+  <div class="section-head"><div><h2>Key metrics</h2><div class="sub" id="metrics-sub">From the loaded export</div></div>
+    <div class="seg" id="range">${[30, 90, 180, 0].map((d) => `<button data-d="${d}" aria-pressed="${s.range === d}">${d ? d + " days" : "All"}</button>`).join("")}</div></div>
+  <div class="grid2" id="metrics"></div>
+  <section class="card"><div class="card-head" style="padding:18px 18px 14px"><div><h2>Settled volume over time</h2><div class="sub">Inbound and outbound flow across all parties, per day.</div></div><div style="text-align:right" id="volhead"></div></div>
+    <div class="split" style="padding:14px 18px 10px"><div class="chart" id="volchart"></div></div></section>
+  <div class="grid2" id="health"></div>
+  <div id="attention"></div>
+  <div class="continue" id="continue"></div>
+  <section class="card onto-card"><div class="card-head" style="padding:18px 18px 14px"><div><h2>Ontology</h2><div class="sub" id="onto-sub"></div></div><button class="btn plain" data-go="types">Open ${icon("arrow")}</button></div>
+    <div class="split body"><div id="ontomini" style="min-height:260px"></div><div class="typebars" id="typebars"></div></div></section>
   <div class="grid2">
-    <section class="panel"><div class="panel-head"><h2>Settled volume</h2>
-      <div class="seg" id="range">${[30, 90, 180, 0].map((d) => `<button data-d="${d}" aria-pressed="${s.range === d}">${d ? d + "d" : "All"}</button>`).join("")}</div></div>
-      <div class="legend"><span style="--c:var(--s1)">Inbound</span><span style="--c:var(--s2)">Outbound</span></div>
-      <div class="chart" id="volchart"></div></section>
-    <section class="panel"><div class="panel-head"><h2>Top parties by volume</h2><span class="note" id="topnote"></span></div><div id="top"></div></section>
-    <section class="panel"><div class="panel-head"><h2>Volume by rail</h2><span class="note">same period</span></div><div id="rails"></div></section>
-    <section class="panel"><div class="panel-head"><h2>Revenue by month</h2></div><div class="chart" id="rev"></div></section>
-    <section class="panel"><div class="panel-head"><h2>Payment corridors</h2><span class="note">same period, by volume</span></div><div id="corr"></div></section>
-    <section class="panel"><div class="panel-head"><h2>Reserve positions</h2><span class="note">as recorded</span></div><div id="reserves"></div></section>
+    <section class="card pad" style="display:grid;gap:14px;align-content:start"><div class="card-head"><h2>Top parties by volume</h2><span class="sub">same period</span></div><div id="top"></div></section>
+    <section class="card pad" style="display:grid;gap:14px;align-content:start"><div class="card-head"><h2>Payment corridors</h2><span class="sub">same period</span></div><div id="corr"></div></section>
   </div>`;
   $("#range").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { s.range = +b.dataset.d; renderHome(); } });
+  $("#heroask").addEventListener("submit", (e) => { e.preventDefault(); const v = $("#heroq").value.trim(); if (v) startQuestion(v); });
+  document.querySelectorAll("[data-ask]").forEach((b) => b.addEventListener("click", () => startQuestion(b.dataset.ask)));
 
-  const tiles = [];
-  if (has("parties")) {
-    const p = await q(`SELECT party_kind AS k, count(*) AS n FROM parties GROUP BY 1 ORDER BY 2 DESC`);
-    const cust = p.find((r) => r.k === "customer")?.n ?? 0;
-    tiles.push({ label: "Customers", value: count(cust), foot: `${count(p.reduce((a, r) => a + r.n, 0))} parties in all` });
-  }
-  if (has("accounts")) {
-    // Client accounts are credit-normal in the ledger: a negative settled balance is money held for the client.
-    const b = await q(`SELECT asset, -sum(settled_balance) AS held, count(DISTINCT party_id) AS holders FROM accounts WHERE account_type = 'clients' GROUP BY 1 ORDER BY 2 DESC`);
-    if (b.length) tiles.push({ label: `Customer balances (${b[0].asset})`, value: money(b[0].held), foot: `${count(b[0].holders)} customers holding` });
-  }
+  const metrics = [];
   let where = "";
   if (has("daily_volume")) {
     const end = (await one(`SELECT max(period_day)::VARCHAR AS d FROM daily_volume`)).d;
     where = s.range ? `WHERE period_day > DATE ${lit(end)} - INTERVAL ${s.range} DAY` : "";
-    $("#homesub").textContent = `Data through ${new Date(end + "T00:00:00").toLocaleDateString("en-US", { dateStyle: "medium" })}. Amounts in US dollars.`;
-    if (s.range) {
-      const v = await one(`SELECT sum(volume_usd) FILTER (WHERE period_day > DATE ${lit(end)} - INTERVAL ${s.range} DAY) AS cur,
+    $("#metrics-sub").textContent = `Data through ${new Date(end + "T00:00:00").toLocaleDateString("en-US", { dateStyle: "medium" })} · amounts in US dollars`;
+    const v = s.range ? await one(`SELECT sum(volume_usd) FILTER (WHERE period_day > DATE ${lit(end)} - INTERVAL ${s.range} DAY) AS cur,
         sum(volume_usd) FILTER (WHERE period_day <= DATE ${lit(end)} - INTERVAL ${s.range} DAY AND period_day > DATE ${lit(end)} - INTERVAL ${2 * s.range} DAY) AS prev,
-        sum(txn_count) FILTER (WHERE period_day > DATE ${lit(end)} - INTERVAL ${s.range} DAY) AS n FROM daily_volume`);
-      const d = v.prev ? (v.cur - v.prev) / v.prev : null;
-      tiles.push({ label: `Volume, last ${s.range} days`, value: money(v.cur), foot: (d === null ? "" : `<span class="${d >= 0 ? "delta-up" : "delta-down"}">${pct(d)}</span> vs prior ${s.range} days · `) + `${count(v.n)} transactions` });
-    } else {
-      const v = await one(`SELECT sum(volume_usd) AS cur, sum(txn_count) AS n FROM daily_volume`);
-      tiles.push({ label: "Volume, all time", value: money(v.cur), foot: `${count(v.n)} transactions` });
-    }
-    const series = await q(`SELECT period_day::VARCHAR AS d, sum(volume_usd) FILTER (WHERE direction = 'inbound') AS i, sum(volume_usd) FILTER (WHERE direction = 'outbound') AS o FROM daily_volume ${where} GROUP BY 1 ORDER BY 1`);
-    const labels = series.map((r) => new Date(r.d + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }));
-    lineChart($("#volchart"), labels, [{ name: "Inbound", color: "var(--s1)", values: series.map((r) => r.i || 0) }, { name: "Outbound", color: "var(--s2)", values: series.map((r) => r.o || 0) }]);
-    const top = await q(`SELECT v.party_id AS id, coalesce(${has("parties") ? "p.party_name" : "NULL"}, v.party_id) AS label, sum(volume_usd) AS value FROM daily_volume v ${has("parties") ? "LEFT JOIN parties p USING (party_id)" : ""} ${where.replace("period_day", "v.period_day")} GROUP BY 1, 2 ORDER BY 3 DESC LIMIT 10`);
-    $("#top").innerHTML = barList(top, { party: true });
-    $("#topnote").textContent = "click a party to open it";
-    $("#rails").innerHTML = barList(await q(`SELECT rail AS label, sum(volume_usd) AS value FROM daily_volume ${where} GROUP BY 1 ORDER BY 2 DESC`));
-  } else {
-    for (const id of ["#volchart", "#top", "#rails"]) $(id).innerHTML = missing("daily_volume");
+        sum(txn_count) FILTER (WHERE period_day > DATE ${lit(end)} - INTERVAL ${s.range} DAY) AS n FROM daily_volume`) : await one(`SELECT sum(volume_usd) AS cur, sum(txn_count) AS n FROM daily_volume`);
+    const d = v.prev ? (v.cur - v.prev) / v.prev : null;
+    metrics.push({ label: "Settled volume", value: money(v.cur), delta: d, deltaText: d === null ? "" : `${(d * 100).toFixed(1)}% vs prior ${s.range} days`, foot: `${count(v.n)} transactions · ${s.range ? "last " + s.range + " days" : "all time"}` });
+    const series = await q(`SELECT period_day::VARCHAR AS d, sum(volume_usd) AS v FROM daily_volume ${where} GROUP BY 1 ORDER BY 1`);
+    areaChart($("#volchart"), series.map((r) => day(r.d)), series.map((r) => r.v || 0), { name: "Volume" });
+    const last = series[series.length - 1];
+    $("#volhead").innerHTML = last ? `<div style="font-size:22px;font-weight:500" class="num">${money(last.v)}</div><div class="sub">${day(last.d)}</div>` : "";
+    $("#top").innerHTML = barList(await q(`SELECT v.party_id AS id, coalesce(${has("parties") ? "p.party_name" : "NULL"}, v.party_id) AS label, sum(volume_usd) AS value FROM daily_volume v ${has("parties") ? "LEFT JOIN parties p USING (party_id)" : ""} ${where.replace("period_day", "v.period_day")} GROUP BY 1, 2 ORDER BY 3 DESC LIMIT 8`), { party: true });
+  } else { $("#volchart").innerHTML = missing("daily_volume"); $("#top").innerHTML = missing("daily_volume"); }
+  if (has("accounts")) {
+    const b = await q(`SELECT asset, -sum(settled_balance) AS held, count(DISTINCT party_id) AS holders FROM accounts WHERE account_type = 'clients' GROUP BY 1 ORDER BY 2 DESC`);
+    if (b.length) metrics.push({ label: `Customer balances (${b[0].asset})`, value: money(b[0].held), foot: `held for ${count(b[0].holders)} customers` });
   }
   if (has("revenue")) {
-    const r = await q(`SELECT strftime(period_month, '%b %y') AS m, sum(revenue_usd) AS v FROM revenue GROUP BY period_month ORDER BY period_month`);
-    columnChart($("#rev"), r.map((x) => x.m), r.map((x) => x.v || 0));
-    const t = await one(`SELECT sum(revenue_usd) AS v FROM revenue WHERE period_month >= (SELECT max(period_month) FROM revenue) - INTERVAL 11 MONTH`);
-    tiles.push({ label: "Revenue, last 12 months", value: money(t.v), foot: "fees earned on settled flow" });
-  } else $("#rev").innerHTML = missing("revenue");
-  if (has("payment_corridors")) {
-    // Corridors are monthly, so the period filter applies to the month a row starts in.
-    $("#corr").innerHTML = barList(await q(`SELECT coalesce(entity_jurisdiction, '?') || ' → ' || coalesce(counterparty_jurisdiction, '?') AS label, sum(volume_usd) AS value FROM payment_corridors ${where.replace("period_day", "period_month")} GROUP BY 1 ORDER BY 2 DESC LIMIT 8`));
-  } else $("#corr").innerHTML = missing("payment_corridors");
-  if (has("reserve_positions")) {
-    const open = hasCol("reserve_positions", "closed_at") ? "WHERE closed_at IS NULL" : "";
-    const r = await q(`SELECT instrument_id, asset_class, custody_location, qty, mark_price FROM reserve_positions ${open} ORDER BY qty DESC`);
-    $("#reserves").innerHTML = table(r, [["instrument_id", "Instrument"], ["asset_class", "Class"], ["custody_location", "Custody"], ["qty", "Quantity"], ["mark_price", "Mark"]]);
-  } else $("#reserves").innerHTML = missing("reserve_positions");
+    const r = await one(`WITH e AS (SELECT max(period_month) AS m FROM revenue) SELECT sum(revenue_usd) FILTER (WHERE period_month > (SELECT m FROM e) - INTERVAL 12 MONTH) AS cur,
+      sum(revenue_usd) FILTER (WHERE period_month <= (SELECT m FROM e) - INTERVAL 12 MONTH AND period_month > (SELECT m FROM e) - INTERVAL 24 MONTH) AS prev FROM revenue`);
+    const d = r.prev ? (r.cur - r.prev) / r.prev : null;
+    metrics.push({ label: "Revenue", value: money(r.cur), delta: d, deltaText: d === null ? "" : `${(d * 100).toFixed(1)}% vs prior 12 months`, foot: "fees on settled flow · last 12 months" });
+  } else if (has("fees")) {
+    const r = await one(`SELECT sum(revenue_usd) AS v, count(*) AS n FROM fees`);
+    metrics.push({ label: "Revenue", value: money(r.v), foot: `${count(r.n)} fee entries` });
+  }
   if (has("payments_in_flight")) {
     const f = await one(`SELECT count(*) AS n, sum(amount_usd) AS v FROM payments_in_flight`);
-    tiles.push({ label: "Payments in flight", value: count(f.n), foot: `${money(f.v)} not yet settled` });
+    metrics.push({ label: "Payments in flight", value: count(f.n), foot: `${money(f.v)} not yet settled` });
   }
-  $("#tiles").innerHTML = tiles.map((t) => `<div class="tile"><span class="label">${esc(t.label)}</span><span class="value">${t.value}</span><span class="foot">${t.foot}</span></div>`).join("");
+  $("#metrics").innerHTML = metrics.map((x) => `<div class="card metric"><span class="label">${esc(x.label)}</span><span class="value">${x.value}</span>
+    ${x.deltaText ? `<span class="delta ${x.delta >= 0 ? "up" : "down"}">${x.delta >= 0 ? "▲" : "▼"} ${esc(x.deltaText)}</span>` : ""}<span class="foot">${esc(x.foot)}</span></div>`).join("");
+
+  // Health: coverage and freshness, then anything waiting on someone.
+  const absent = EXPECTED.filter((t) => !has(t)).length, ex = m?.exported_at ? new Date(m.exported_at) : null;
+  $("#health").innerHTML = `<div class="card metric"><span class="label">Datasets</span><div class="statline"><span class="big">${state.tables.size}</span><span class="unit">loaded</span></div><span class="foot">${absent ? absent + " expected " + plural("file", absent) + " not loaded" : "every exported dataset is here"}</span></div>
+    <div class="card metric"><span class="label">Snapshot</span><div class="statline"><span class="big">${ex ? Math.max(0, Math.round((Date.now() - ex) / 864e5)) : "–"}</span><span class="unit">${ex ? "days old" : "add manifest.json for its date"}</span></div><span class="foot">${ex ? "exported " + esc(ex.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })) : "dev stage, read-only"}</span></div>`;
+  if (has("payments_in_flight")) {
+    const errCol = hasCol("payments_in_flight", "last_error") ? "last_error IS NOT NULL OR " : "";
+    const stuck = await q(`SELECT payment_id, party_id, status, amount_usd FROM payments_in_flight WHERE ${errCol} status ILIKE '%held%' OR status ILIKE '%fail%' OR status ILIKE '%error%' ORDER BY amount_usd DESC NULLS LAST LIMIT 3`);
+    if (stuck.length) $("#attention").innerHTML = `<div class="attention"><div class="title">${icon("alert")} Needs attention</div>
+      ${stuck.map((p) => `<div class="row"><span>${esc(titleCase(p.status))} payment <span class="mono small">${esc(p.payment_id)}</span> · ${money(p.amount_usd)}</span>${p.party_id ? `<button class="btn" data-party="${esc(p.party_id)}">Inspect</button>` : ""}</div>`).join("")}</div>`;
+  }
+  const rec = state.recent.length ? state.recent : [...state.tables.keys()].slice(0, 3).map((t) => ({ kind: "table", id: t, label: t }));
+  $("#continue").innerHTML = `<span class="lbl">${icon("clock")} Continue where you left off</span>` + rec.map((r) =>
+    r.kind === "party" ? `<button class="pill" data-party="${esc(r.id)}">${icon("shape")}${esc(r.label)}</button>`
+    : r.kind === "thread" ? `<button class="pill" data-thread="${esc(r.id)}">${icon("spark")}${esc(r.label)}</button>`
+    : `<button class="pill" data-table="${esc(r.id)}">${icon("db")}${esc(r.label)}</button>`).join("");
+
+  // Ontology card: the type graph in miniature, then record counts per type.
+  const types = [...state.tables].map(([t, v]) => ({ t, rows: v.rows })), refs = references();
+  $("#onto-sub").textContent = `${types.length} object types · ${refs.length} links · ${count(totalRows)} records`;
+  drawTypeGraph($("#ontomini"), types, refs);
+  const top = types.filter((x) => typeOf(x.t).role !== "activity").sort((a, b) => b.rows - a.rows), max = Math.max(1, ...top.map((x) => x.rows));
+  $("#typebars").innerHTML = top.slice(0, 7).map((x) => `<div class="typebar"><div class="top"><span>${esc(typeOf(x.t).name)}</span><span>${count(x.rows)}</span></div><div class="track"><div class="fill" style="width:${(x.rows / max * 100).toFixed(1)}%"></div></div></div>`).join("")
+    + (top.length > 7 ? `<div class="muted small">${top.length - 7} more object ${plural("type", top.length - 7)}</div>` : "");
+
+  if (has("payment_corridors")) $("#corr").innerHTML = barList(await q(`SELECT coalesce(entity_jurisdiction, '?') || ' → ' || coalesce(counterparty_jurisdiction, '?') AS label, sum(volume_usd) AS value FROM payment_corridors ${where.replace("period_day", "period_month")} GROUP BY 1 ORDER BY 2 DESC LIMIT 8`));
+  else $("#corr").innerHTML = missing("payment_corridors");
 }
 
-// ---------- Explorer ----------
+// Mini type graph: hubs in the middle, every other type on an ellipse around them,
+// circle area by record count, a line per reference.
+function drawTypeGraph(el, types, refs) {
+  const W = 560, H = 300, cx = W / 2, cy = H / 2 - 6;
+  const r = d3.scaleSqrt().domain([0, d3.max(types, (d) => d.rows) || 1]).range([6, 22]);
+  const hubs = types.filter((d) => typeOf(d.t).role === "hub"), rest = types.filter((d) => typeOf(d.t).role !== "hub");
+  const pos = new Map();
+  hubs.forEach((d, i) => pos.set(d.t, { x: cx + (i - (hubs.length - 1) / 2) * 120, y: cy }));
+  rest.forEach((d, i) => { const a = -Math.PI / 2 + (i + 0.5) * (2 * Math.PI / rest.length); pos.set(d.t, { x: cx + 230 * Math.cos(a), y: cy + 108 * Math.sin(a) }); });
+  const label = (d) => { const p = pos.get(d.t), rr = r(d.rows); return `<g style="cursor:pointer" data-table="${esc(d.t)}"><circle cx="${p.x}" cy="${p.y}" r="${rr}" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="${p.x}" y="${p.y + rr + 14}" text-anchor="middle" style="font-size:12.5px;font-weight:500;fill:var(--fg)">${esc(typeOf(d.t).name)}</text>
+      <text x="${p.x}" y="${p.y + rr + 27}" text-anchor="middle" style="font-size:11px;fill:var(--muted)">${compactN(d.rows)}</text></g>`; };
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;overflow:visible" role="img" aria-label="Object types and how they reference each other">
+    ${refs.map((l) => { const a = pos.get(l.from), b = pos.get(l.to); return a && b ? `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="var(--line-strong)" stroke-width="1.2" ${l.dashed ? 'stroke-dasharray="4 4"' : ""}/>` : ""; }).join("")}
+    ${types.map(label).join("")}</svg>`;
+}
+
+// ---------- Explorer: records around their parties ----------
+let graphCache = null;
+async function buildGraph() {
+  if (graphCache) return graphCache;
+  const nodes = [], links = [], byId = new Map(), seenLinks = new Set(), PER = 400, TOTAL = 1500;
+  const add = (type, key, label, row) => { const id = type + ":" + key; if (byId.has(id)) return byId.get(id); const n = { id, type, key: String(key), label: String(label ?? key), row, deg: 0 }; nodes.push(n); byId.set(id, n); return n; };
+  if (!has("parties")) return (graphCache = { nodes, links, byId });
+  // Parties ranked by how much hangs off them, so the cap keeps the best-connected records.
+  const sat = Object.keys(TYPES).filter((t) => t !== "parties" && has(t) && TYPES[t].key && hasCol(t, TYPES[t].key) && hasCol(t, "party_id") && typeOf(t).role === "record");
+  const deg = sat.length ? `(${sat.map((t) => `SELECT party_id FROM ${qid(t)}`).join(" UNION ALL ")})` : "(SELECT NULL AS party_id)";
+  const parties = await q(`SELECT p.*, coalesce(d.n, 0) AS n FROM parties p LEFT JOIN (SELECT party_id, count(*) AS n FROM ${deg} GROUP BY 1) d USING (party_id) ORDER BY n DESC LIMIT 300`);
+  for (const p of parties) add("parties", p.party_id, p.party_name || p.party_id, p);
+  const ids = parties.map((p) => lit(p.party_id)).join(",") || "''";
+  for (const t of sat) {
+    if (nodes.length >= TOTAL) break;
+    const ty = typeOf(t);
+    const rows = await q(`SELECT * FROM ${qid(t)} WHERE party_id IN (${ids}) LIMIT ${Math.min(PER, TOTAL - nodes.length)}`);
+    for (const r of rows) {
+      const n = add(t, r[ty.key], r[ty.label] ?? r[ty.key], r), p = byId.get("parties:" + r.party_id);
+      const lk = n.id + ">" + (p && p.id);
+      if (p && !seenLinks.has(lk)) { seenLinks.add(lk); links.push({ source: n.id, target: p.id }); n.deg++; p.deg++; }
+    }
+  }
+  return (graphCache = { nodes, links, byId });
+}
+const endId = (e) => (typeof e === "object" ? e.id : e);
+function neighbors(g, id) { return g.links.filter((l) => endId(l.source) === id || endId(l.target) === id).map((l) => g.byId.get(endId(l.source) === id ? endId(l.target) : endId(l.source))).filter(Boolean); }
+
 async function renderExplorer() {
   const s = state.explorer;
-  if (!has("parties")) { $("#main").innerHTML = `<div class="panel"><h2>Explorer</h2>${missing("parties")}</div>`; return; }
-  const kinds = (await q(`SELECT party_kind AS k, count(*) AS n FROM parties GROUP BY 1 ORDER BY 2 DESC`));
-  $("#main").innerHTML = `
-  <div><div class="eyebrow">Explorer</div><h1>Parties</h1><p class="sub">Every customer, bank and issuer on the ledger, with their accounts, activity and owners.</p></div>
-  <div class="explorer">
-    <aside class="panel">
-      <input type="search" id="pq" placeholder="Search name or id" value="${esc(s.q)}" aria-label="Search parties">
-      <div class="seg wrap" id="pk">${[{ k: "all", n: kinds.reduce((a, r) => a + r.n, 0) }, ...kinds].map((r) => `<button data-k="${esc(r.k)}" aria-pressed="${s.kind === r.k}">${esc(r.k)} <span class="num">${r.n}</span></button>`).join("")}</div>
-      <div class="plist" id="plist" role="listbox" aria-label="Parties"></div>
-    </aside>
-    <section id="pdetail"></section>
-  </div>`;
-  const vol = has("daily_volume");
-  const list = async () => {
-    const cond = [s.kind !== "all" ? `p.party_kind = ${lit(s.kind)}` : "", s.q ? `(p.party_name ILIKE ${lit("%" + s.q + "%")} OR p.party_id ILIKE ${lit("%" + s.q + "%")})` : ""].filter(Boolean).join(" AND ");
-    const rows = await q(`SELECT p.party_id, p.party_name, p.party_kind, p.country ${vol ? ", v.vol" : ""} FROM parties p
-      ${vol ? "LEFT JOIN (SELECT party_id, sum(volume_usd) AS vol FROM daily_volume GROUP BY 1) v USING (party_id)" : ""}
-      ${cond ? "WHERE " + cond : ""} ORDER BY ${vol ? "v.vol DESC NULLS LAST," : ""} p.party_name LIMIT 200`);
-    $("#plist").innerHTML = rows.length ? rows.map((r) => `<div class="pitem" role="option" data-pid="${esc(r.party_id)}" aria-selected="${r.party_id === s.party}">
-      <span class="n">${esc(r.party_name || r.party_id)}</span><span class="v">${vol && r.vol ? money(r.vol) : ""}</span>
-      <span class="m">${esc(r.party_kind)}${r.country ? " · " + esc(r.country) : ""}</span></div>`).join("") : `<div class="empty">No parties match.</div>`;
-    if (!s.party && rows[0]) { s.party = rows[0].party_id; renderParty(); }
-  };
-  $("#pq").addEventListener("input", (e) => { s.q = e.target.value; list(); });
-  $("#pk").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; s.kind = b.dataset.k; $("#pk").querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x === b)); list(); });
-  $("#plist").addEventListener("click", (e) => { const it = e.target.closest("[data-pid]"); if (!it) return; s.party = it.dataset.pid; $("#plist").querySelectorAll(".pitem").forEach((x) => x.setAttribute("aria-selected", x === it)); renderParty(); });
-  await list();
-  if (s.party) await renderParty();
+  $("#main").innerHTML = `<div class="section-head"><div><h1>Explorer</h1><p class="lede">Your records and how they connect.</p></div>
+    <div class="seg" id="mode"><button data-m="graph" aria-pressed="${s.mode === "graph"}">Graph</button><button data-m="table" aria-pressed="${s.mode === "table"}">Table</button></div></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><div class="search" style="flex:1 1 260px;max-width:420px">${icon("search")}<input type="search" id="xq" placeholder="Find a record" value="${esc(s.q)}" aria-label="Find a record"></div><div class="typechips" id="chips"></div></div>
+    <div class="muted" id="xnote">Laying out records...</div><div id="xbody"></div>`;
+  $("#mode").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { s.mode = b.dataset.m; renderExplorer(); } });
+  if (!has("parties")) { $("#xnote").innerHTML = missing("parties"); return; }
+  const g = await buildGraph();
+  const counts = d3.rollup(g.nodes, (v) => v.length, (d) => d.type);
+  const total = [...state.tables.values()].reduce((a, t) => a + t.rows, 0);
+  $("#chips").innerHTML = [...counts].map(([t, c]) => `<button data-t="${t}" aria-pressed="${!s.hidden.has(t)}"><span class="dot" style="--c:${typeColor(t)}"></span>${esc(typeOf(t).name)} <span class="n">${count(c)}</span></button>`).join("");
+  $("#chips").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; s.hidden.has(b.dataset.t) ? s.hidden.delete(b.dataset.t) : s.hidden.add(b.dataset.t); b.setAttribute("aria-pressed", !s.hidden.has(b.dataset.t)); draw(); });
+  $("#xnote").textContent = `The ${count(g.nodes.length)} best-connected of ${count(total)} records. Click a record to inspect it; double-click to see everything around it.`;
+  let timer; $("#xq").addEventListener("input", (e) => { clearTimeout(timer); timer = setTimeout(() => { s.q = e.target.value; draw(); }, 200); });
+  const draw = () => s.mode === "graph" ? drawRecordGraph(g) : drawRecordTable(g);
+  draw();
 }
 
-async function renderParty() {
-  const id = state.explorer.party, el = $("#pdetail");
-  if (!id || !el) return;
+function drawRecordTable(g) {
+  const s = state.explorer, ql = s.q.toLowerCase();
+  const rows = g.nodes.filter((n) => !s.hidden.has(n.type) && (!ql || n.label.toLowerCase().includes(ql) || n.key.toLowerCase().includes(ql))).sort((a, b) => b.deg - a.deg).slice(0, 300);
+  $("#xbody").innerHTML = `<div class="card pad">${table(rows.map((n) => ({ ...n, tname: typeOf(n.type).name })), [["label", "Record", (v, r) => `<span style="display:inline-flex;gap:8px;align-items:center"><span class="dot" style="--c:${typeColor(r.type)}"></span>${esc(v)}</span>`], ["tname", "Type"], ["key", "Key", (v) => `<span class="mono small">${esc(v)}</span>`], ["deg", "Links"]])}</div>`;
+  $("#xbody tbody")?.querySelectorAll("tr").forEach((tr, i) => { tr.classList.add("click"); tr.addEventListener("click", () => openRecord(g, rows[i])); });
+}
+
+function drawRecordGraph(g) {
+  const s = state.explorer, el = $("#xbody");
+  el.innerHTML = `<div class="graph-wrap" id="gw"><svg id="gsvg" aria-label="Records and their links"></svg>
+    <div class="zoom"><button id="zin" aria-label="Zoom in">${icon("plus")}</button><button id="zout" aria-label="Zoom out">${icon("minus")}</button><button id="zfit" aria-label="Fit to view">${icon("fit")}</button></div><div id="insp"></div></div>`;
+  const vis = g.nodes.filter((n) => !s.hidden.has(n.type)), visIds = new Set(vis.map((n) => n.id));
+  const links = g.links.map((l) => ({ source: endId(l.source), target: endId(l.target) })).filter((l) => visIds.has(l.source) && visIds.has(l.target));
+  const nodes = vis.map((n) => ({ ...n, ref: n }));
+  const r = (n) => n.type === "parties" ? Math.max(9, Math.min(18, 6 + Math.sqrt(n.deg) * 1.2)) : 5;
+  // Strong short links and a weak repulsion pack each party's records into a rosette around it.
+  const sim = d3.forceSimulation(nodes)
+    .force("link", d3.forceLink(links).id((d) => d.id).distance(10).strength(0.9))
+    .force("charge", d3.forceManyBody().strength((d) => d.type === "parties" ? -70 : -5))
+    .force("collide", d3.forceCollide((d) => r(d) + 1.6).iterations(2))
+    .force("x", d3.forceX(0).strength(0.07)).force("y", d3.forceY(0).strength(0.07)).stop();
+  for (let i = 0; i < 260; i++) sim.tick();
+  const svg = d3.select("#gsvg"), root = svg.append("g");
+  const linkSel = root.append("g").selectAll("line").data(links).join("line").attr("stroke", "var(--line-strong)").attr("stroke-width", 0.6)
+    .attr("x1", (d) => d.source.x).attr("y1", (d) => d.source.y).attr("x2", (d) => d.target.x).attr("y2", (d) => d.target.y);
+  const nodeSel = root.append("g").selectAll("circle").data(nodes).join("circle").attr("cx", (d) => d.x).attr("cy", (d) => d.y).attr("r", r)
+    .attr("fill", (d) => typeColor(d.type)).attr("stroke", "var(--surface)").attr("stroke-width", 1).style("cursor", "pointer");
+  nodeSel.append("title").text((d) => `${typeOf(d.type).name}: ${d.label}`);
+  const labelG = root.append("g");
+  const zoom = d3.zoom().scaleExtent([0.15, 8]).on("zoom", (e) => { root.attr("transform", e.transform); labelG.attr("font-size", 11.5 / e.transform.k).attr("stroke-width", 3 / e.transform.k); });
+  svg.call(zoom).on("dblclick.zoom", null);
+  const fit = () => {
+    const box = $("#gw").getBoundingClientRect(); if (!nodes.length) return;
+    const [x0, x1] = d3.extent(nodes, (d) => d.x), [y0, y1] = d3.extent(nodes, (d) => d.y);
+    const k = Math.min(4, 0.9 / Math.max((x1 - x0 + 40) / box.width, (y1 - y0 + 40) / box.height));
+    svg.call(zoom.transform, d3.zoomIdentity.translate(box.width / 2, box.height / 2).scale(k).translate(-(x0 + x1) / 2, -(y0 + y1) / 2));
+  };
+  fit();
+  $("#zin").onclick = () => svg.transition().duration(200).call(zoom.scaleBy, 1.5);
+  $("#zout").onclick = () => svg.transition().duration(200).call(zoom.scaleBy, 1 / 1.5);
+  $("#zfit").onclick = fit;
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const highlight = (sel) => {
+    const nb = sel ? new Set([sel.id, ...neighbors(g, sel.id).map((n) => n.id)]) : null;
+    const touches = (d) => sel && (d.source.id === sel.id || d.target.id === sel.id);
+    nodeSel.attr("opacity", (d) => !nb || nb.has(d.id) ? 1 : 0.18).attr("stroke", (d) => sel && d.id === sel.id ? "var(--fg)" : "var(--surface)").attr("stroke-width", (d) => sel && d.id === sel.id ? 2 : 1);
+    linkSel.attr("opacity", (d) => !sel || touches(d) ? 1 : 0.1).attr("stroke", (d) => touches(d) ? "var(--faint)" : "var(--line-strong)");
+    const shown = sel ? [byId.get(sel.id), ...neighbors(g, sel.id).map((n) => byId.get(n.id)).filter(Boolean).slice(0, 12)].filter(Boolean) : [];
+    // Each label points away from the selected record, so a rosette's labels fan out instead of piling up.
+    const c = sel && byId.get(sel.id), dir = (d) => { if (!c || d.id === c.id) return { x: 0, y: 1 }; const dx = d.x - c.x, dy = d.y - c.y, m = Math.hypot(dx, dy) || 1; return { x: dx / m, y: dy / m }; };
+    labelG.selectAll("text").data(shown, (d) => d.id).join("text").attr("class", "lbl")
+      .attr("x", (d) => d.x + dir(d).x * (r(d) + 2)).attr("y", (d) => d.y + dir(d).y * (r(d) + 2) + (d.id === c?.id ? 12 : 3))
+      .attr("text-anchor", (d) => d.id === c?.id ? "middle" : dir(d).x >= 0 ? "start" : "end")
+      .style("font-weight", (d) => d.id === sel?.id ? 600 : 400).text((d) => (d.type === "parties" ? "" : typeOf(d.type).name + " ") + (d.label.length > 28 ? d.label.slice(0, 27) + "…" : d.label));
+  };
+  const center = (x) => {
+    const t = byId.get(x.id); if (!t) return;
+    const box = $("#gw").getBoundingClientRect(), k = Math.max(d3.zoomTransform(svg.node()).k, 2.2);
+    svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity.translate(box.width * 0.36, box.height / 2).scale(k).translate(-t.x, -t.y));
+  };
+  const select = (n) => { s.selected = n ? n.id : null; highlight(n); inspector(g, n, select, center); };
+  nodeSel.on("click", (e, d) => { e.stopPropagation(); select(d.ref); center(d); });
+  nodeSel.on("dblclick", (e, d) => { e.stopPropagation(); select(d.ref); const box = $("#gw").getBoundingClientRect(); svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity.translate(box.width * 0.36, box.height / 2).scale(4).translate(-d.x, -d.y)); });
+  svg.on("click", () => select(null));
+  const ql = s.q.toLowerCase();
+  if (ql) { const hit = nodes.find((n) => n.label.toLowerCase().includes(ql) || n.key.toLowerCase().includes(ql)); if (hit) { select(hit.ref); center(hit); } }
+  else if (s.selected && byId.has(s.selected)) select(byId.get(s.selected).ref);
+}
+
+function inspector(g, n, select, center) {
+  const el = $("#insp"); if (!el) return;
+  if (!n) { el.innerHTML = ""; return; }
+  const nb = neighbors(g, n.id), ty = typeOf(n.type);
+  const groups = d3.rollup(nb, (v) => v.length, (d) => d.type);
+  el.innerHTML = `<div class="inspector"><button class="icon-btn x-btn" id="ix" aria-label="Close">${icon("x")}</button>
+    <div class="name"><span class="dot" style="--c:${typeColor(n.type)}"></span><span>${esc(n.label)}</span></div>
+    <div class="muted small" style="word-break:break-all">${esc(ty.name)} ${esc(n.key)} · ${nb.length} ${plural("link", nb.length)}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn dark" id="iopen">Open record ${icon("arrow")}</button><button class="btn" id="iaround">Show what's around it</button></div>
+    <div class="muted small">${[...groups].map(([t, c]) => `${esc(typeOf(t).name)} · ${c}`).join(" · ") || "No linked records"}</div>
+    <div class="rel">${nb.slice(0, 40).map((m) => `<button data-n="${esc(m.id)}"><span class="nm"><span class="dot" style="--c:${typeColor(m.type)}"></span><span>${esc(m.label)}</span></span><span class="ty">${esc(typeOf(m.type).name)}</span></button>`).join("")}
+    ${nb.length > 40 ? `<div class="muted small" style="padding:6px 4px">and ${nb.length - 40} more</div>` : ""}</div></div>`;
+  $("#ix").onclick = () => select(null);
+  $("#iopen").onclick = () => openRecord(g, n);
+  $("#iaround").onclick = () => center(n);
+  el.querySelectorAll("[data-n]").forEach((b) => b.addEventListener("click", () => { const m = g.byId.get(b.dataset.n); select(m); center(m); }));
+}
+
+// Record drawer: every field of the source row, then its linked records.
+function openRecord(g, n) {
+  if (n.type === "parties") return openParty(n.key);
+  const ty = typeOf(n.type), nb = g ? neighbors(g, n.id) : [];
+  $("#overlay").innerHTML = `<div class="drawer-back" id="db"></div><aside class="drawer" role="dialog" aria-label="${esc(ty.name)} ${esc(n.key)}">
+    <header><div><div class="eyebrow">${esc(ty.name)}</div><div class="display">${esc(n.label)}</div></div><button class="icon-btn" id="dx" aria-label="Close" style="border:1px solid var(--line-strong);border-radius:10px;padding:9px">${icon("x")}</button></header>
+    <div class="body">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">${n.row.party_id ? `<button class="btn" data-party="${esc(n.row.party_id)}">Open party ${icon("arrow")}</button>` : ""}<button class="btn" id="dask">${icon("chat")} Ask</button></div>
+      <div class="kv">${Object.entries(n.row).map(([k, v]) => `<div class="k">${esc(titleCase(k))}</div><div>${cell(v)}</div>`).join("")}</div>
+      ${nb.length ? `<div><h2 style="margin-bottom:6px">Related records</h2><div class="related">${nb.map((m) => `<button ${m.type === "parties" ? `data-party="${esc(m.key)}"` : ""}><span>${esc(m.label)}</span><span class="ty">${esc(typeOf(m.type).name)}</span></button>`).join("")}</div></div>` : ""}
+    </div></aside>`;
+  $("#db").onclick = closeDrawer; $("#dx").onclick = closeDrawer;
+  $("#dask").onclick = () => startQuestion(`Tell me about ${ty.name.toLowerCase()} ${n.key}${n.row.party_id ? ` (party ${n.row.party_id})` : ""}: what is it and what's notable about it?`);
+  document.addEventListener("keydown", escClose);
+}
+function escClose(e) { if (e.key === "Escape") closeDrawer(); }
+function closeDrawer() { $("#overlay").innerHTML = ""; document.removeEventListener("keydown", escClose); }
+
+// ---------- Party record page ----------
+async function renderPartyPage() {
+  const id = state.party;
+  if (!has("parties") || !id) return go("explorer");
   const p = await one(`SELECT * FROM parties WHERE party_id = ${lit(id)}`);
-  if (!p.party_id) { el.innerHTML = `<div class="panel"><div class="empty">Party ${esc(id)} isn't in the loaded parties file.</div></div>`; return; }
+  if (!p.party_id) { $("#main").innerHTML = `<div class="card pad"><div class="empty">Party ${esc(id)} isn't in the loaded parties file.</div></div>`; return; }
+  remember("party", id, p.party_name || id);
   const P = lit(id);
-  const accounts = has("accounts") ? await q(`SELECT account_address, account_class, asset, settled_balance, pending_balance, posting_count, strftime(last_activity_at, '%Y-%m-%d') AS last FROM accounts WHERE party_id = ${P} ORDER BY abs(settled_balance) DESC NULLS LAST`) : [];
-  const vol = has("daily_volume") ? await one(`SELECT sum(volume_usd) AS v, sum(txn_count) AS n FROM daily_volume WHERE party_id = ${P} AND period_day > (SELECT max(period_day) FROM daily_volume) - INTERVAL 90 DAY`) : {};
-  const owners = has("beneficial_owners") ? await q(`SELECT owner_name, owner_kind, role, ownership_pct, jurisdiction_of_incorporation, screening_state FROM beneficial_owners WHERE party_id = ${P} ORDER BY ownership_pct DESC NULLS LAST`) : [];
-  // Counterparties: other parties posting in the same transactions.
-  const cps = has("postings") ? await q(`WITH mine AS (SELECT DISTINCT txn_id FROM postings WHERE party_id = ${P})
-    SELECT o.party_id AS id, ${has("parties") ? "coalesce(any_value(pp.party_name), o.party_id)" : "o.party_id"} AS name, count(DISTINCT o.txn_id) AS n, sum(abs(o.amount)) AS v
-    FROM postings o JOIN mine USING (txn_id) ${has("parties") ? "LEFT JOIN parties pp ON pp.party_id = o.party_id" : ""}
-    WHERE o.party_id IS NOT NULL AND o.party_id <> ${P} GROUP BY o.party_id ORDER BY v DESC LIMIT 6`) : [];
-  const recent = has("postings") ? await q(`SELECT strftime(x.effective_ts, '%Y-%m-%d %H:%M') AS at, ${has("transactions") ? "t.transaction_type" : "NULL"} AS type, x.account_address, x.asset, x.amount, x.layer
-    FROM postings x ${has("transactions") ? "LEFT JOIN transactions t USING (txn_id)" : ""} WHERE x.party_id = ${P} ORDER BY x.effective_ts DESC LIMIT 15`) : [];
-  const senders = has("senders") ? await q(`SELECT sender_name, sender_country, sum(volume_usd) AS v, sum(txn_count) AS n FROM senders WHERE party_id = ${P} GROUP BY 1, 2 ORDER BY 3 DESC LIMIT 8`) : [];
-  const spark = has("daily_volume") ? await q(`SELECT period_day::VARCHAR AS d, sum(volume_usd) AS v FROM daily_volume WHERE party_id = ${P} AND period_day > (SELECT max(period_day) FROM daily_volume) - INTERVAL 90 DAY GROUP BY 1 ORDER BY 1`) : [];
+  const accounts = has("accounts") ? await q(`SELECT account_address, asset, settled_balance, posting_count, strftime(last_activity_at, '%Y-%m-%d') AS last FROM accounts WHERE party_id = ${P} ORDER BY abs(settled_balance) DESC NULLS LAST`) : [];
   for (const a of accounts) a.balance = held(a.account_address, a.settled_balance);
   const total = accounts.reduce((s, r) => s + r.balance, 0);
-
-  el.innerHTML = `<div style="display:grid;gap:20px">
-    <div class="panel">
-      <div class="panel-head"><div><div class="eyebrow">${esc(p.party_kind)}${p.country ? " · " + esc(p.country) : ""}</div><h1>${esc(p.party_name || p.party_id)}</h1></div>
-        <div style="display:flex;gap:8px;align-items:center">${kycChip(p.kyc_status)}<span class="chip mono">${esc(p.party_id)}</span></div></div>
-      <div class="tiles">
-        <div class="tile"><span class="label">Settled balance</span><span class="value">${accounts.length ? money(total) : "–"}</span><span class="foot">${accounts.length} account${accounts.length === 1 ? "" : "s"}</span></div>
-        <div class="tile"><span class="label">Volume, last 90 days</span><span class="value">${vol.v ? money(vol.v) : "–"}</span><span class="foot">${vol.n ? count(vol.n) + " transactions" : "no activity"}</span></div>
-        <div class="tile"><span class="label">Beneficial owners</span><span class="value">${owners.length || "–"}</span><span class="foot">${owners.length ? "declared" : has("beneficial_owners") ? "none declared" : "not loaded"}</span></div>
-      </div>
-      ${spark.length > 1 ? `<div class="chart" id="pspark"></div>` : ""}
-    </div>
-    <div class="grid2">
-      <section class="panel"><div class="panel-head"><h2>Relationships</h2><span class="note">click a counterparty to open it</span></div><div class="graph" id="pgraph"></div></section>
-      <section class="panel"><h2>Accounts</h2>${has("accounts") ? table(accounts, [["account_address", "Address", (v) => `<span class="mono">${esc(v)}</span>`], ["asset", "Asset"], ["balance", "Balance", (v) => money(v, { compact: false })], ["posting_count", "Postings"], ["last", "Last activity"]], { numeric: ["balance", "posting_count"] }) : missing("accounts")}</section>
-    </div>
-    <section class="panel"><h2>Recent postings</h2>${has("postings") ? table(recent, [["at", "When"], ["type", "Type"], ["account_address", "Account", (v) => `<span class="mono">${esc(v)}</span>`], ["amount", "Amount", (v) => money(v, { compact: false })], ["layer", "Layer"]], { numeric: ["amount"] }) : missing("postings")}</section>
-    <div class="grid2">
-      <section class="panel"><h2>Beneficial owners</h2>${has("beneficial_owners") ? table(owners, [["owner_name", "Name"], ["owner_kind", "Kind"], ["role", "Role"], ["ownership_pct", "Stake", (v) => v === null ? "–" : Number(v).toFixed(1) + "%"], ["jurisdiction_of_incorporation", "Jurisdiction"], ["screening_state", "Screening", (v) => kycChip(v)]], { numeric: ["ownership_pct"] }) : missing("beneficial_owners")}</section>
-      <section class="panel"><h2>Top senders</h2>${has("senders") ? table(senders, [["sender_name", "Sender"], ["sender_country", "Country"], ["v", "Volume", (v) => money(v)], ["n", "Transactions"]], { numeric: ["v", "n"] }) : missing("senders")}</section>
-    </div></div>`;
-  if (spark.length > 1) lineChart($("#pspark"), spark.map((r) => new Date(r.d + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })), [{ name: "Volume", color: "var(--s1)", values: spark.map((r) => r.v || 0) }], { height: 150 });
-  drawGraph($("#pgraph"), p, accounts, owners, cps);
+  const vol = has("daily_volume") ? await one(`SELECT sum(volume_usd) AS v, sum(txn_count) AS n FROM daily_volume WHERE party_id = ${P} AND period_day > (SELECT max(period_day) FROM daily_volume) - INTERVAL 90 DAY`) : {};
+  const spark = has("daily_volume") ? await q(`SELECT period_day::VARCHAR AS d, sum(volume_usd) AS v FROM daily_volume WHERE party_id = ${P} AND period_day > (SELECT max(period_day) FROM daily_volume) - INTERVAL 90 DAY GROUP BY 1 ORDER BY 1`) : [];
+  const owners = has("beneficial_owners") ? await q(`SELECT owner_name, owner_kind, role, ownership_pct, jurisdiction_of_incorporation, screening_state FROM beneficial_owners WHERE party_id = ${P} ORDER BY ownership_pct DESC NULLS LAST`) : [];
+  const recent = has("postings") ? await q(`SELECT strftime(x.effective_ts, '%Y-%m-%d %H:%M') AS at, ${has("transactions") ? "t.transaction_type" : "NULL"} AS type, x.account_address, x.amount
+    FROM postings x ${has("transactions") ? "LEFT JOIN transactions t USING (txn_id)" : ""} WHERE x.party_id = ${P} ORDER BY x.effective_ts DESC LIMIT 12`) : [];
+  const cps = has("postings") ? await q(`WITH mine AS (SELECT DISTINCT txn_id FROM postings WHERE party_id = ${P})
+    SELECT o.party_id AS id, coalesce(any_value(pp.party_name), o.party_id) AS label, sum(abs(o.amount)) AS value FROM postings o JOIN mine USING (txn_id) LEFT JOIN parties pp ON pp.party_id = o.party_id
+    WHERE o.party_id IS NOT NULL AND o.party_id <> ${P} GROUP BY o.party_id ORDER BY value DESC LIMIT 8`) : [];
+  const skip = new Set(["party_id", "party_name"]);
+  $("#main").innerHTML = `
+  <div><button class="link small" data-go="explorer">← Explorer</button></div>
+  <div class="section-head"><div><div class="eyebrow">Party · ${esc(p.party_kind || "")}</div><h1>${esc(p.party_name || p.party_id)}</h1><p class="lede mono small">${esc(p.party_id)}</p></div>
+    <button class="btn" id="pask">${icon("chat")} Ask about this party</button></div>
+  <div class="grid2">
+    <div class="card metric"><span class="label">Settled balance</span><span class="value">${accounts.length ? money(total) : "–"}</span><span class="foot">${accounts.length} ${plural("account", accounts.length)}</span></div>
+    <div class="card metric"><span class="label">Volume, last 90 days</span><span class="value">${vol.v ? money(vol.v) : "–"}</span><span class="foot">${vol.n ? count(vol.n) + " transactions" : "no activity"}</span></div>
+  </div>
+  ${spark.length > 1 ? `<section class="card"><div class="card-head" style="padding:18px 18px 12px"><h2>Daily volume</h2><span class="sub">last 90 days</span></div><div class="split" style="padding:14px 18px 10px"><div class="chart" id="pspark"></div></div></section>` : ""}
+  <div class="grid2">
+    <section class="card pad"><h2 style="margin-bottom:4px">Details</h2><div class="kv">${Object.entries(p).filter(([k]) => !skip.has(k)).map(([k, v]) => `<div class="k">${esc(titleCase(k))}</div><div>${cell(v)}</div>`).join("")}</div></section>
+    <section class="card pad" style="display:grid;gap:14px;align-content:start"><h2>Top counterparties</h2>${has("postings") ? barList(cps, { party: true }) : missing("postings")}</section>
+  </div>
+  <section class="card pad" style="display:grid;gap:10px"><h2>Accounts</h2>${has("accounts") ? table(accounts, [["account_address", "Address", (v) => `<span class="mono small">${esc(v)}</span>`], ["asset", "Asset"], ["balance", "Balance", (v) => money(v, { compact: false })], ["posting_count", "Postings"], ["last", "Last activity"]], { numeric: ["balance", "posting_count"] }) : missing("accounts")}</section>
+  <section class="card pad" style="display:grid;gap:10px"><h2>Recent postings</h2>${has("postings") ? table(recent, [["at", "When"], ["type", "Type"], ["account_address", "Account", (v) => `<span class="mono small">${esc(v)}</span>`], ["amount", "Amount", (v) => money(v, { compact: false })]], { numeric: ["amount"] }) : missing("postings")}</section>
+  <section class="card pad" style="display:grid;gap:10px"><h2>Beneficial owners</h2>${has("beneficial_owners") ? table(owners, [["owner_name", "Name"], ["owner_kind", "Kind"], ["role", "Role"], ["ownership_pct", "Stake", (v) => v === null ? "–" : Number(v).toFixed(1) + "%"], ["jurisdiction_of_incorporation", "Jurisdiction"], ["screening_state", "Screening"]], { numeric: ["ownership_pct"] }) : missing("beneficial_owners")}</section>`;
+  if (spark.length > 1) areaChart($("#pspark"), spark.map((r) => day(r.d)), spark.map((r) => r.v || 0), { height: 170 });
+  $("#pask").onclick = () => startQuestion(`Give me a short profile of ${p.party_name || p.party_id} (party_id ${p.party_id}): balances, activity trend, counterparties and owners.`);
 }
 
-// A radial picture of one party: accounts and owners on the inner ring, counterparties outside.
-function drawGraph(el, p, accounts, owners, cps) {
-  const W = 560, H = 380, cx = W / 2, cy = H / 2;
-  const inner = [...accounts.slice(0, 6).map((a) => ({ kind: "account", label: a.account_class || a.account_address, sub: money(a.balance) })),
-                 ...owners.slice(0, 4).map((o) => ({ kind: "owner", label: o.owner_name, sub: o.ownership_pct === null ? o.role : Number(o.ownership_pct).toFixed(0) + "%" }))];
-  const outer = cps.map((c) => ({ kind: "cp", id: c.id, label: c.name, sub: count(c.n) + " txns" }));
-  if (!inner.length && !outer.length) { el.innerHTML = `<div class="empty">No accounts, owners or counterparties loaded for this party.</div>`; return; }
-  const place = (arr, r, off) => arr.map((n, i) => ({ ...n, x: cx + r * Math.cos(off + (i / arr.length) * Math.PI * 2), y: cy + r * Math.sin(off + (i / arr.length) * Math.PI * 2) }));
-  const a = place(inner, 105, -Math.PI / 2), b = place(outer, 165, -Math.PI / 2 + Math.PI / Math.max(outer.length, 1));
-  const color = { account: "var(--s1)", owner: "var(--s2)", cp: "var(--faint)" };
-  const trunc = (s, n = 20) => (s = String(s ?? "")).length > n ? s.slice(0, n - 1) + "…" : s;
-  const node = (n) => `<g class="node${n.id ? " go" : ""}" ${n.id ? `data-party="${esc(n.id)}"` : ""}>
-      <circle cx="${n.x}" cy="${n.y}" r="${n.kind === "cp" ? 7 : 8}" fill="${n.kind === "cp" ? "var(--surface)" : color[n.kind]}" stroke="${color[n.kind]}" stroke-width="2"/>
-      <text x="${n.x}" y="${n.y + (n.y < cy ? -14 : 20)}" text-anchor="middle">${esc(trunc(n.label))}</text>
-      <text class="lbl-muted" x="${n.x}" y="${n.y + (n.y < cy ? -27 : 33)}" text-anchor="middle">${esc(n.sub)}</text><title>${esc(n.label)}</title></g>`;
-  el.innerHTML = `<svg viewBox="-40 -20 ${W + 80} ${H + 40}" role="img" aria-label="Accounts, owners and counterparties of ${esc(p.party_name)}">
-    ${[...a, ...b].map((n) => `<line x1="${cx}" y1="${cy}" x2="${n.x}" y2="${n.y}" stroke="var(--line)" stroke-width="1.5" ${n.kind === "cp" ? 'stroke-dasharray="4 3"' : ""}/>`).join("")}
-    <circle cx="${cx}" cy="${cy}" r="14" fill="var(--accent)"/>
-    <text x="${cx}" y="${cy + 32}" text-anchor="middle" style="font-weight:600">${esc(trunc(p.party_name || p.party_id, 26))}</text>
-    ${[...a, ...b].map(node).join("")}
-  </svg><div class="legend"><span style="--c:var(--s1)">Account</span><span style="--c:var(--s2)">Owner</span><span style="--c:var(--faint)">Counterparty</span></div>`;
+// ---------- Object types canvas ----------
+async function renderTypes() {
+  const refs = references(), t = [...state.tables.keys()];
+  const byRole = (role) => t.filter((x) => typeOf(x).role === role);
+  const hubs = byRole("hub"), acts = byRole("activity"), recs = byRole("record");
+  // Activity streams on top, hubs in the middle, everything that references them below;
+  // any row longer than four cards wraps.
+  const chunk = (r) => { const out = []; for (let i = 0; i < r.length; i += 4) out.push(r.slice(i, i + 4)); return out; };
+  const fill = Math.max(0, 4 - hubs.length);
+  const rows = [...chunk(acts), ...chunk([...hubs, ...recs.slice(0, fill)]), ...chunk(recs.slice(fill))];
+  const desc = (x) => {
+    const ty = typeOf(x), n = state.tables.get(x).rows;
+    const linked = refs.filter((r) => r.from === x).map((r) => plural(typeOf(r.to).name.toLowerCase()));
+    return `${count(n)} ${plural(ty.name.toLowerCase(), n)} from the export${linked.length ? ", linked to " + linked.join(" and ") : ""}.`;
+  };
+  $("#main").innerHTML = `<div class="section-head"><div><h1>Ontology</h1><p class="lede">Real-world objects and relationships, grounded in the ledger export.</p></div></div>
+    <div class="muted" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="pill" style="padding:5px 8px">${icon("file")}</span>${t.length} tables from 1 source, condensed into <b style="color:var(--fg)">${t.length} entities</b> and ${refs.length} connections</div>
+    <div class="canvas" id="canvas"><svg class="links" id="links"></svg><div class="rows">${rows.map((r) => `<div class="row">${r.map((x) => {
+      const ty = typeOf(x), info = state.tables.get(x);
+      return `<div class="tcard ${ty.role === "activity" ? "activity" : ""}" data-card="${x}" data-table="${x}" tabindex="0">
+        <div class="tt">${esc(ty.name)}</div>
+        <div class="meta">${count(info.rows)} ${ty.role === "activity" ? "rows" : "records"}${ty.key && hasCol(x, ty.key) ? ` · key <code>${esc(ty.key)}</code>` : ""}</div>
+        <div class="desc">${esc(desc(x))}</div>
+        ${ty.role === "activity" ? `<span class="tag">Activity stream</span>` : ""}
+        <div class="src"><span>${icon("file")}${esc(x)}</span><span>Export</span></div></div>`; }).join("")}</div>`).join("")}</div></div>
+    <div class="canvas-foot"><span>Open a type to browse its rows.</span><span class="legend"><span>Link</span><span class="dash">Activity</span></span></div>`;
+  drawCanvasLinks(refs);
+  window.addEventListener("resize", () => state.view === "types" && drawCanvasLinks(refs), { once: true });
 }
-
-// ---------- Ask ----------
-const RULES = () => `You answer questions about Ark's dev-environment ledger data for an executive audience, using DuckDB SQL over these tables:
-
-${[...state.tables].map(([n, t]) => `${n} (${t.rows} rows): ${t.cols.map((c) => c.name + " " + c.type).join(", ")}`).join("\n")}
-
-Facts about the data:
-- party_id identifies a customer, bank or issuer; parties.party_name is its name. Every table's party_id joins to parties.
-- Amounts ending in _usd and the amount and balance columns are decimal US dollars (ArkUSD is a dollar stablecoin). Never add amounts of different assets.
-- accounts.account_type is the first segment of the ledger address (clients, banks, platform, ...). Client accounts are credit-normal: a negative settled_balance is money Ark holds for that client.
-- daily_volume and revenue are already aggregated per party per day or month.
-
-Use the run_sql tool for every figure; it returns at most 50 rows as JSON. Prefer one well-aggregated query over many. Then answer in a few short sentences or a small list: lead with the answer, give the key figures formatted as dollars, and mention any caveat in the data. Do not show SQL in the answer; the page shows it.`;
-
-function starters() {
-  const s = [];
-  if (has("daily_volume")) s.push("How has settled volume trended over the last three months?");
-  if (has("accounts")) s.push("Which customers hold the largest balances?");
-  if (has("revenue")) s.push("Which customers generated the most revenue, and at what rate?");
-  if (has("payment_corridors")) s.push("What are our biggest payment corridors?");
-  if (has("beneficial_owners")) s.push("Which customers have an owner with more than 50% stake?");
-  if (has("payments_in_flight")) s.push("What's stuck in flight right now?");
-  return s.slice(0, 5);
-}
-
-function md(text) {
-  const blocks = esc(text).split(/```/);
-  return blocks.map((b, i) => i % 2 ? `<pre>${b.replace(/^\w*\n/, "")}</pre>` : b.split(/\n{2,}/).map((para) => {
-    const lines = para.split("\n");
-    const inline = (l) => l.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`([^`]+)`/g, "<code>$1</code>");
-    if (lines.every((l) => /^\s*([-*]|\d+\.)\s/.test(l))) return `<ul>${lines.map((l) => `<li>${inline(l.replace(/^\s*([-*]|\d+\.)\s/, ""))}</li>`).join("")}</ul>`;
-    return `<p>${lines.map(inline).join("<br>")}</p>`;
-  }).join("")).join("");
-}
-
-async function renderAsk() {
-  const s = state.ask;
-  if (state.sample === undefined) state.sample = null;
-  const avail = !!state.sample;
-  $("#main").innerHTML = `<div class="ask">
-    <div><div class="eyebrow">Ask</div><h1>Ask the ledger</h1><p class="sub">Claude writes SQL against the loaded files, runs it here in your browser, and answers from the results. Each step is shown so you can check the work.</p></div>
-    <div class="thread" id="thread"></div>
-    <div class="composer">
-      ${avail ? "" : `<div class="panel"><div class="empty">Claude isn't available in this view. Open this artifact on claude.ai to ask questions.</div></div>`}
-      <div class="starters" id="starters">${s.turns.length ? "" : starters().map((t) => `<button>${esc(t)}</button>`).join("")}</div>
-      <textarea id="qbox" placeholder="Ask about balances, volume, revenue, customers, owners..." ${avail ? "" : "disabled"} aria-label="Question"></textarea>
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <button class="btn" id="send" ${avail ? "" : "disabled"}>Ask</button><button class="btn ghost" id="stop" hidden>Stop</button>
-        <label class="sub" style="margin:0" for="tier">Model</label>
-        <select id="tier"><option value="quick">Fast</option><option value="default" selected>Balanced</option><option value="complex">Most capable</option></select>
-        <button class="link" id="clear" style="background:none;border:0;margin-left:auto" ${s.turns.length ? "" : "hidden"}>New conversation</button>
-      </div>
-    </div></div>`;
-  for (const t of s.turns) appendTurn(t);
-  $("#starters").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b && avail) { $("#qbox").value = b.textContent; send(); } });
-  $("#send").addEventListener("click", send);
-  $("#qbox").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) send(); });
-  $("#stop").addEventListener("click", () => s.ctl?.abort());
-  $("#clear").addEventListener("click", () => { s.ctl?.abort(); s.turns = []; renderAsk(); });
-}
-
-function appendTurn(t) {
-  const th = $("#thread"); if (!th) return null;
-  const u = document.createElement("div"); u.className = "msg-user"; u.textContent = t.q; th.append(u);
-  const b = document.createElement("div"); b.className = "msg-bot";
-  b.innerHTML = `<div class="tools"></div><div class="answer">${t.a ? md(t.a) : t.err ? `<p class="sub">${esc(t.err)}</p>` : '<p class="thinking">Thinking...</p>'}</div>`;
-  th.append(b);
-  for (const c of t.calls || []) addCall(b, c);
-  return b;
-}
-function addCall(b, c) {
-  const d = document.createElement("details"); d.className = "toolcall";
-  const cols = c.rows?.length ? Object.keys(c.rows[0]) : [];
-  d.innerHTML = `<summary><span class="chip">SQL</span>${c.error ? `failed: ${esc(c.error)}` : `${c.rows.length} row${c.rows.length === 1 ? "" : "s"} in ${c.ms} ms`}</summary>
-    <div class="body"><pre>${esc(c.sql)}</pre>${cols.length ? `<div class="grid-scroll">${table(c.rows.slice(0, 20), cols.map((k) => [k, k]))}</div>` : ""}</div>`;
-  $(".tools", b).append(d);
-}
-
-async function send() {
-  const s = state.ask; const box = $("#qbox");
-  const question = box.value.trim(); if (!question || s.busy || !state.sample) return;
-  box.value = ""; $("#starters").innerHTML = "";
-  const turn = { q: question, a: "", calls: [] }; s.turns.push(turn);
-  const b = appendTurn(turn); b.scrollIntoView({ block: "end", behavior: "smooth" });
-  $("#clear").hidden = false;
-  s.busy = true; s.ctl = new AbortController(); $("#send").disabled = true; $("#stop").hidden = false;
-  // Earlier turns keep only question and answer; the tables and rules lead every call.
-  const history = s.turns.slice(0, -1).filter((t) => t.a).slice(-6).flatMap((t) => [{ role: "user", content: t.q }, { role: "assistant", content: t.a }]);
-  const input = [{ role: "user", content: RULES() }, ...history, { role: "user", content: question }];
-  try {
-    await state.sample(input, {
-      signal: s.ctl.signal, modelTier: $("#tier").value, cache: false,
-      onText: ({ text }) => { turn.a = text; $(".answer", b).innerHTML = md(text); },
-      tools: [{
-        name: "run_sql",
-        description: "Run one read-only DuckDB SELECT (or WITH ... SELECT) over the loaded tables. Returns up to 50 result rows as JSON.",
-        inputSchema: { type: "object", properties: { sql: { type: "string", description: "One SELECT statement" } }, required: ["sql"] },
-        async execute(input) {
-          const sql = String(input.sql || "").trim().replace(/;\s*$/, "");
-          const call = { sql, rows: [], ms: 0 };
-          try {
-            if (!/^(select|with)\b/i.test(sql) || /;/.test(sql)) throw new Error("Only a single SELECT statement is allowed");
-            const t0 = performance.now();
-            call.rows = (await q(sql)).slice(0, 50);
-            call.ms = Math.round(performance.now() - t0);
-            return call.rows;
-          } catch (e) { call.error = e.message || String(e); throw e; }
-          finally { turn.calls.push(call); addCall(b, call); }
-        },
-      }],
-    });
-  } catch (e) {
-    turn.a = e.text || "";
-    turn.err = { not_granted: "Claude wasn't allowed for this page. Allow it from the artifact's permissions to ask questions.", rate_limited: "Too many questions at once or a usage limit was reached. Try again in a little while.", cancelled: "Stopped.", refused: "Claude declined this question. Try rephrasing it." }[e.code] || `Claude couldn't finish: ${e.message || e.code}.`;
-    $(".answer", b).innerHTML = (turn.a ? md(turn.a) : "") + `<p class="sub">${esc(turn.err)}</p>`;
-  } finally {
-    s.busy = false; s.ctl = null;
-    if ($("#send")) { $("#send").disabled = false; $("#stop").hidden = true; }
+function drawCanvasLinks(refs) {
+  const cv = $("#canvas"), svg = $("#links"); if (!cv) return;
+  cv.querySelectorAll(".elabel").forEach((e) => e.remove());
+  const base = cv.getBoundingClientRect();
+  const pos = (t) => { const e = cv.querySelector(`[data-card="${t}"]`); if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.left - base.left + cv.scrollLeft, y: r.top - base.top + cv.scrollTop, w: r.width, h: r.height }; };
+  svg.setAttribute("width", cv.scrollWidth); svg.setAttribute("height", cv.scrollHeight);
+  const fan = new Map(); let paths = "";
+  const addLabel = (x, y) => { const lab = document.createElement("div"); lab.className = "elabel"; lab.textContent = "References"; lab.style.left = x + "px"; lab.style.top = y + "px"; cv.append(lab); };
+  for (const l of refs) {
+    const a = pos(l.from), b = pos(l.to); if (!a || !b) continue;
+    const same = Math.abs(a.y - b.y) < 10, down = !same && a.y < b.y;
+    // References into one edge of a hub fan out along it and share one label.
+    const edge = l.to + (same ? "s" : down ? "t" : "b"), k = fan.get(edge) || 0; fan.set(edge, k + 1);
+    const off = (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 22;
+    const x1 = a.x + a.w / 2, x2 = b.x + b.w / 2 + off;
+    let d, ah, lx, ly;
+    if (same) {
+      // Cards in one row: leave from the bottom and dip under the row, so no line crosses a card.
+      const y1 = a.y + a.h, y2 = b.y + b.h, dip = Math.max(y1, y2) + 34;
+      d = `M${x1} ${y1}C${x1} ${dip} ${x2} ${dip} ${x2} ${y2}`; ah = `M${x2 - 4} ${y2 + 7}L${x2} ${y2}L${x2 + 4} ${y2 + 7}`;
+      lx = (x1 + x2) / 2; ly = dip - 8;
+    } else {
+      const y1 = down ? a.y + a.h : a.y, y2 = down ? b.y : b.y + b.h, my = (y1 + y2) / 2;
+      d = `M${x1} ${y1}C${x1} ${my} ${x2} ${my} ${x2} ${y2}`; ah = `M${x2 - 4} ${y2 + (down ? -7 : 7)}L${x2} ${y2}L${x2 + 4} ${y2 + (down ? -7 : 7)}`;
+      lx = b.x + b.w / 2; ly = y2 + (down ? -26 : 26);
+    }
+    paths += `<path d="${d}" ${l.dashed ? 'stroke-dasharray="5 5"' : ""}/><path d="${ah}"/>`;
+    if (k === 0) addLabel(lx, ly);
   }
+  svg.innerHTML = paths;
 }
 
-// ---------- Tables ----------
-async function renderTables() {
+// ---------- Data (raw tables) ----------
+async function renderData() {
   const g = state.grid;
   if (!g.table || !has(g.table)) g.table = [...state.tables.keys()][0];
-  $("#main").innerHTML = `
-  <div><div class="eyebrow">Tables</div><h1>Raw data</h1><p class="sub">Every loaded dataset as exported. Click a column to sort; the filter searches all text columns.</p></div>
-  <div class="tables">
-    <aside class="panel tlist">${[...state.tables].map(([n, t]) => `<button data-t="${esc(n)}" aria-current="${n === g.table}"><span>${esc(n)}</span><span class="c">${count(t.rows)}</span></button>`).join("")}</aside>
-    <section class="panel">
-      <div class="panel-head"><h2 class="mono">${esc(g.table)}</h2><input type="search" id="gf" placeholder="Filter rows" value="${esc(g.filter)}" aria-label="Filter rows"></div>
-      <div class="grid-scroll" id="grid"></div>
-      <div class="pager" id="pager"></div>
-    </section>
-  </div>`;
-  $(".tlist").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { Object.assign(g, { table: b.dataset.t, filter: "", sort: null, page: 0 }); renderTables(); } });
+  remember("table", g.table, g.table);
+  $("#main").innerHTML = `<div class="section-head"><div><h1>Data</h1><p class="lede">Every loaded dataset as exported. Click a column to sort; the filter searches all text columns.</p></div></div>
+  <div class="datagrid">
+    <aside class="card pad" style="display:grid;gap:2px;align-content:start;padding:10px" id="tlist">${[...state.tables].map(([n, t]) => `<button class="nav-item" style="justify-content:space-between;gap:16px" data-t="${esc(n)}" ${n === g.table ? 'aria-current="page"' : ""}><span style="display:flex;gap:10px;align-items:center"><span class="dot" style="--c:${typeColor(n)}"></span>${esc(n)}</span><span class="muted small num">${compactN(t.rows)}</span></button>`).join("")}</aside>
+    <section class="card pad" style="display:grid;gap:12px;align-content:start;min-width:0">
+      <div class="card-head"><div><h2>${esc(typeOf(g.table).name)}</h2><div class="sub mono">${esc(g.table)}</div></div><div class="search" style="width:min(280px,100%)">${icon("search")}<input type="search" id="gf" placeholder="Filter rows" value="${esc(g.filter)}" aria-label="Filter rows"></div></div>
+      <div class="grid-scroll" id="grid"></div><div class="muted small" id="pager" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"></div></section></div>`;
+  $("#tlist").addEventListener("click", (e) => { const b = e.target.closest("[data-t]"); if (b) { Object.assign(g, { table: b.dataset.t, filter: "", sort: null, page: 0 }); renderData(); } });
   let timer; $("#gf").addEventListener("input", (e) => { clearTimeout(timer); timer = setTimeout(() => { g.filter = e.target.value; g.page = 0; drawGrid(); }, 200); });
   await drawGrid();
 }
@@ -734,12 +916,115 @@ async function drawGrid() {
   const rows = await q(`SELECT * FROM ${qid(g.table)} ${where} ${order} LIMIT ${PAGE} OFFSET ${g.page * PAGE}`);
   const isNum = (c) => /INT|DOUBLE|DECIMAL|FLOAT|REAL|NUMERIC/i.test(c.type);
   $("#grid").innerHTML = `<table><thead><tr>${t.cols.map((c) => `<th class="sortable ${isNum(c) ? "num" : ""}" data-c="${esc(c.name)}">${esc(c.name)}${g.sort === c.name ? (g.desc ? " ↓" : " ↑") : ""}</th>`).join("")}</tr></thead>
-    <tbody>${rows.map((r) => `<tr>${t.cols.map((c) => `<td class="${isNum(c) ? "num" : ""}">${c.name === "party_id" && r[c.name] ? partyLink(r[c.name]) : cell(r[c.name])}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+    <tbody>${rows.map((r) => `<tr>${t.cols.map((c) => `<td class="${isNum(c) ? "num" : ""}">${c.name === "party_id" && r[c.name] && has("parties") ? `<button class="link" data-party="${esc(r[c.name])}">${esc(r[c.name])}</button>` : cell(r[c.name])}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
   $("#grid thead").addEventListener("click", (e) => { const th = e.target.closest("th"); if (!th) return; g.desc = g.sort === th.dataset.c ? !g.desc : false; g.sort = th.dataset.c; drawGrid(); });
   const pages = Math.max(1, Math.ceil(total / PAGE));
-  $("#pager").innerHTML = `<span>${count(total)} row${total === 1 ? "" : "s"}${g.filter ? " match" : ""}</span>
-    <button class="btn ghost" id="pp" ${g.page ? "" : "disabled"}>Previous</button><span>Page ${g.page + 1} of ${pages}</span><button class="btn ghost" id="pn" ${g.page + 1 < pages ? "" : "disabled"}>Next</button>`;
+  $("#pager").innerHTML = `<span>${count(total)} ${plural("row", total)}${g.filter ? " match" : ""}</span><button class="btn" id="pp" ${g.page ? "" : "disabled"}>Previous</button><span>Page ${g.page + 1} of ${pages}</span><button class="btn" id="pn" ${g.page + 1 < pages ? "" : "disabled"}>Next</button>`;
   $("#pp").onclick = () => { g.page--; drawGrid(); }; $("#pn").onclick = () => { g.page++; drawGrid(); };
+}
+
+// ---------- Analyst ----------
+const RULES = () => `You answer questions about Ark's dev-environment ledger data for an executive audience, using DuckDB SQL over these tables:
+
+${[...state.tables].map(([n, t]) => `${n} (${t.rows} rows): ${t.cols.map((c) => c.name + " " + c.type).join(", ")}`).join("\n")}
+
+Facts about the data:
+- party_id identifies a customer, bank or issuer; parties.party_name is its name. Every table's party_id joins to parties.
+- Amounts ending in _usd and the amount and balance columns are decimal US dollars (ArkUSD is a dollar stablecoin). Never add amounts of different assets.
+- accounts.account_type is the first segment of the ledger address (clients, banks, platform, ...). Client accounts are credit-normal: a negative settled_balance is money Ark holds for that client.
+- daily_volume and revenue are already aggregated per party per day or month.
+
+Use the run_sql tool for every figure; it returns at most 50 rows as JSON. Prefer one well-aggregated query over many. Then answer in a few short sentences or a small list: lead with the answer, give the key figures formatted as dollars, and mention any caveat in the data. Do not show SQL in the answer; the page shows it.`;
+
+function md(text) {
+  return esc(text).split(/```/).map((b, i) => i % 2 ? `<pre>${b.replace(/^\w*\n/, "")}</pre>` : b.split(/\n{2,}/).map((para) => {
+    const lines = para.split("\n"), inline = (l) => l.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`([^`]+)`/g, "<code>$1</code>");
+    if (lines.every((l) => /^\s*([-*]|\d+\.)\s/.test(l))) return `<ul>${lines.map((l) => `<li>${inline(l.replace(/^\s*([-*]|\d+\.)\s/, ""))}</li>`).join("")}</ul>`;
+    return `<p>${lines.map(inline).join("<br>")}</p>`;
+  }).join("")).join("");
+}
+const thread = () => state.ask.threads.find((t) => t.id === state.ask.current);
+function newThread(text) {
+  const t = { id: "t" + Date.now(), title: text.length > 60 ? text.slice(0, 57) + "..." : text, turns: [] };
+  state.ask.threads.push(t); state.ask.current = t.id; remember("thread", t.id, t.title);
+  return t;
+}
+function startQuestion(text) { newThread(text); go("analyst"); send(text); }
+async function renderAnalyst() {
+  const avail = !!state.sample, th = thread();
+  $("#main").innerHTML = `<div class="ask">
+    <div><h1>Analyst</h1><p class="lede">Claude writes SQL against the loaded files, runs it here in your browser, and answers from the results. Every step is shown.</p></div>
+    <div class="thread" id="thread"></div>
+    <div class="composer">
+      ${avail ? "" : `<div class="card pad"><div class="empty">Claude isn't available in this view. Open this artifact on claude.ai to ask questions.</div></div>`}
+      ${th?.turns.length ? "" : `<div class="chips" style="margin:0">${starters().map((x) => `<button class="pill" data-q="${esc(x)}">${esc(x)}</button>`).join("")}</div>`}
+      <form class="askbox" id="aform" style="margin:0;max-width:none">${icon("spark", "spark")}<input id="qbox" placeholder="Ask about balances, volume, revenue, customers, owners..." ${avail ? "" : "disabled"} aria-label="Question" autocomplete="off"><button class="send" aria-label="Ask" ${avail ? "" : "disabled"}>${icon("up")}</button></form>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap" class="small muted">
+        <label for="tier">Model</label><select id="tier"><option value="quick">Fast</option><option value="default" selected>Balanced</option><option value="complex">Most capable</option></select>
+        <button class="btn" id="stop" hidden>Stop</button></div>
+    </div></div>`;
+  for (const t of th?.turns || []) appendTurn(t);
+  document.querySelectorAll("[data-q]").forEach((b) => b.addEventListener("click", () => ask(b.dataset.q)));
+  $("#aform").addEventListener("submit", (e) => { e.preventDefault(); const v = $("#qbox").value.trim(); if (v) ask(v); });
+  $("#stop").addEventListener("click", () => state.ask.ctl?.abort());
+}
+function ask(text) {
+  if (!thread()) { newThread(text); renderNav(); document.querySelector(".composer .chips")?.remove(); }
+  send(text);
+}
+function appendTurn(t) {
+  const th = $("#thread"); if (!th) return null;
+  const u = document.createElement("div"); u.className = "msg-user"; u.textContent = t.q; th.append(u);
+  const b = document.createElement("div"); b.className = "msg-bot";
+  b.innerHTML = `<div class="tools" style="display:grid;gap:8px"></div><div class="answer">${t.a ? md(t.a) : ""}${t.err ? `<p class="muted">${esc(t.err)}</p>` : t.a ? "" : '<p class="thinking">Thinking...</p>'}</div>`;
+  th.append(b);
+  for (const c of t.calls || []) addCall(b, c);
+  return b;
+}
+function addCall(b, c) {
+  const d = document.createElement("details"); d.className = "toolcall";
+  const cols = c.rows?.length ? Object.keys(c.rows[0]) : [];
+  d.innerHTML = `<summary><span class="pill" style="padding:1px 8px;font-size:11.5px">SQL</span>${c.error ? `failed: ${esc(c.error)}` : `${c.rows.length} ${plural("row", c.rows.length)} in ${c.ms} ms`}</summary>
+    <div class="body"><pre>${esc(c.sql)}</pre>${cols.length ? `<div class="grid-scroll" style="max-height:300px">${table(c.rows.slice(0, 20), cols.map((k) => [k, k]))}</div>` : ""}</div>`;
+  $(".tools", b).append(d);
+}
+async function send(question) {
+  const s = state.ask, th = thread();
+  if (!th || s.busy) return;
+  if ($("#qbox")) $("#qbox").value = "";
+  const turn = { q: question, a: "", calls: [] }; th.turns.push(turn);
+  if (!state.sample) { turn.err = "Claude isn't available in this view. Open this artifact on claude.ai to ask questions."; appendTurn(turn); return; }
+  const b = appendTurn(turn); b?.scrollIntoView({ block: "end", behavior: "smooth" });
+  s.busy = true; s.ctl = new AbortController(); if ($("#stop")) $("#stop").hidden = false;
+  // Earlier turns keep only question and answer; the tables and rules lead every call.
+  const history = th.turns.slice(0, -1).filter((t) => t.a).slice(-6).flatMap((t) => [{ role: "user", content: t.q }, { role: "assistant", content: t.a }]);
+  const box = () => (state.view === "analyst" && thread() === th ? b : null);
+  try {
+    await state.sample([{ role: "user", content: RULES() }, ...history, { role: "user", content: question }], {
+      signal: s.ctl.signal, modelTier: $("#tier")?.value || "default", cache: false,
+      onText: ({ text }) => { turn.a = text; const el = box(); if (el) $(".answer", el).innerHTML = md(text); },
+      tools: [{
+        name: "run_sql",
+        description: "Run one read-only DuckDB SELECT (or WITH ... SELECT) over the loaded tables. Returns up to 50 result rows as JSON.",
+        inputSchema: { type: "object", properties: { sql: { type: "string", description: "One SELECT statement" } }, required: ["sql"] },
+        async execute(input) {
+          const sql = String(input.sql || "").trim().replace(/;\s*$/, ""), call = { sql, rows: [], ms: 0 };
+          try {
+            if (!/^(select|with)\b/i.test(sql) || /;/.test(sql)) throw new Error("Only a single SELECT statement is allowed");
+            const t0 = performance.now(); call.rows = (await q(sql)).slice(0, 50); call.ms = Math.round(performance.now() - t0);
+            return call.rows;
+          } catch (e) { call.error = e.message || String(e); throw e; }
+          finally { turn.calls.push(call); const el = box(); if (el) addCall(el, call); }
+        },
+      }],
+    });
+  } catch (e) {
+    turn.a = e.text || "";
+    turn.err = { not_granted: "Claude wasn't allowed for this page. Allow it from the artifact's permissions to ask questions.", rate_limited: "Too many questions at once or a usage limit was reached. Try again in a little while.", cancelled: "Stopped.", refused: "Claude declined this question. Try rephrasing it." }[e.code] || `Claude couldn't finish: ${e.message || e.code}.`;
+    const el = box(); if (el) $(".answer", el).innerHTML = (turn.a ? md(turn.a) : "") + `<p class="muted">${esc(turn.err)}</p>`;
+  } finally {
+    s.busy = false; s.ctl = null; if ($("#stop")) $("#stop").hidden = true;
+  }
 }
 
 // ---------- Boot ----------
@@ -747,5 +1032,5 @@ let engineError = "";
 renderLoader();
 startEngine().then(() => { const el = $("#loadstatus"); if (el && !el.textContent.startsWith("Could")) el.textContent = "Ready. Choose or drop your files."; })
   .catch((e) => { engineError = "The query engine didn't start: " + (e.message || e); const el = $("#loadstatus"); if (el) el.textContent = engineError; });
-if (window.claude?.use) window.claude.use("sample").then((s) => { state.sample = s; if (state.view === "ask" && state.tables.size) renderAsk(); }).catch(() => {});
+if (window.claude?.use) window.claude.use("sample").then((s) => { state.sample = s; if (state.view === "analyst") renderAnalyst(); }).catch(() => {});
 </script>
