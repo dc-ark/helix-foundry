@@ -701,13 +701,34 @@ function drawRecordGraph(g) {
   const links = g.links.map((l) => ({ source: endId(l.source), target: endId(l.target) })).filter((l) => visIds.has(l.source) && visIds.has(l.target));
   const nodes = vis.map((n) => ({ ...n, ref: n }));
   const r = (n) => n.type === "parties" ? Math.max(9, Math.min(18, 6 + Math.sqrt(n.deg) * 1.2)) : 5;
-  // Strong short links and a weak repulsion pack each party's records into a rosette around it.
-  const sim = d3.forceSimulation(nodes)
-    .force("link", d3.forceLink(links).id((d) => d.id).distance(10).strength(0.9))
-    .force("charge", d3.forceManyBody().strength((d) => d.type === "parties" ? -70 : -5))
-    .force("collide", d3.forceCollide((d) => r(d) + 1.6).iterations(2))
-    .force("x", d3.forceX(0).strength(0.07)).force("y", d3.forceY(0).strength(0.07)).stop();
-  for (let i = 0; i < 260; i++) sim.tick();
+  // Records cluster by type: each party's records of one type hang off a hidden anchor
+  // node, so its fees pack into one disc and its payments into another, and every type
+  // is drawn gently toward its own sector of the canvas so like colors gather together.
+  const byIdAll = new Map(nodes.map((n) => [n.id, n]));
+  const sectors = [...new Set(nodes.filter((n) => n.type !== "parties").map((n) => n.type))];
+  const R = 70 + Math.sqrt(nodes.length) * 9;
+  const home = (t) => { const i = sectors.indexOf(t), a = (i / Math.max(1, sectors.length)) * 2 * Math.PI - Math.PI / 2; return i < 0 ? { x: 0, y: 0 } : { x: R * Math.cos(a), y: R * Math.sin(a) }; };
+  const anchors = new Map(), simLinks = [];
+  for (const l of links) {
+    const a = byIdAll.get(l.source), b = byIdAll.get(l.target);
+    const [party, rec] = a.type === "parties" ? [a, b] : [b, a];
+    const key = party.id + "|" + rec.type;
+    if (!anchors.has(key)) { const h = home(rec.type); anchors.set(key, { id: "anchor:" + key, anchor: true, type: rec.type, party: party.id, n: 0, x: h.x, y: h.y }); }
+    const an = anchors.get(key); an.n++;
+    simLinks.push({ source: an.id, target: rec.id, kind: "member" });
+  }
+  for (const an of anchors.values()) simLinks.push({ source: an.party, target: an.id, kind: "group", dist: 12 + Math.sqrt(an.n) * 6.5 });
+  for (const n of nodes) if (n.type !== "parties") { const h = home(n.type); n.x = h.x + (Math.random() - 0.5) * 40; n.y = h.y + (Math.random() - 0.5) * 40; }
+  const simNodes = [...nodes, ...anchors.values()];
+  const typeX = (d) => d.type === "parties" ? 0 : home(d.type).x, typeY = (d) => d.type === "parties" ? 0 : home(d.type).y;
+  const sim = d3.forceSimulation(simNodes)
+    .force("link", d3.forceLink(simLinks).id((d) => d.id).distance((l) => l.kind === "group" ? l.dist : 2).strength((l) => l.kind === "group" ? 0.5 : 1))
+    .force("charge", d3.forceManyBody().strength((d) => d.anchor ? -25 - d.n * 0.6 : d.type === "parties" ? -40 : -3))
+    .force("collide", d3.forceCollide((d) => d.anchor ? 0 : r(d) + 1.4).iterations(3))
+    .force("x", d3.forceX(typeX).strength((d) => d.type === "parties" ? 0.02 : 0.035))
+    .force("y", d3.forceY(typeY).strength((d) => d.type === "parties" ? 0.02 : 0.035)).stop();
+  for (let i = 0; i < 320; i++) sim.tick();
+  links.forEach((l) => { l.source = byIdAll.get(l.source); l.target = byIdAll.get(l.target); });
   const svg = d3.select("#gsvg"), root = svg.append("g");
   const linkSel = root.append("g").selectAll("line").data(links).join("line").attr("stroke", "var(--line-strong)").attr("stroke-width", 0.6)
     .attr("x1", (d) => d.source.x).attr("y1", (d) => d.source.y).attr("x2", (d) => d.target.x).attr("y2", (d) => d.target.y);
