@@ -19,3 +19,6 @@ backups/
 
 # Ark demo exports hold dev-stage personal data (ark/export.py)
 ark/out/
+
+# Ledger Lens engine files, downloaded by lens/fetch-vendor.sh
+lens/vendor/

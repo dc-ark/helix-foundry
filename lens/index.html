@@ -1,0 +1,751 @@
+<title>Ark Ledger Lens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: a sticky top bar with four sections; each section is one column of
+   panels that widens into two at desktop width. Charts and tables live in panels. */
+:root {
+  --bg: #f4f6f5; --surface: #ffffff; --sunken: #eef2f0; --fg: #141c19; --muted: #5a6964; --faint: #8a9893; --line: #dce3e0;
+  --accent: #1f6f5c; --accent-ink: #ffffff; --accent-soft: #e2f0eb;
+  --s1: #2a78d6; --s2: #eb6834;
+  --good: #1d7a46; --good-bg: #e3f3e9; --warn: #8a6100; --warn-bg: #fbf0d9; --bad: #b3261e; --bad-bg: #fbe6e4;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0e1412; --surface: #151d1a; --sunken: #111816; --fg: #e3ebe7; --muted: #9aaaa4; --faint: #6e7f79; --line: #26332f;
+  --accent: #5fc2a6; --accent-ink: #0e1412; --accent-soft: #183129;
+  --s1: #3987e5; --s2: #d95926;
+  --good: #6bd396; --good-bg: #163322; --warn: #f0c060; --warn-bg: #362a10; --bad: #ff8a80; --bad-bg: #3a1a18; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0e1412; --surface: #151d1a; --sunken: #111816; --fg: #e3ebe7; --muted: #9aaaa4; --faint: #6e7f79; --line: #26332f;
+  --accent: #5fc2a6; --accent-ink: #0e1412; --accent-soft: #183129;
+  --s1: #3987e5; --s2: #d95926;
+  --good: #6bd396; --good-bg: #163322; --warn: #f0c060; --warn-bg: #362a10; --bad: #ff8a80; --bad-bg: #3a1a18; color-scheme: dark }
+
+body { background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 14.5px; line-height: 1.5; }
+.mono, code, td.num, .num { font-family: var(--mono); }
+.num, td.num { font-variant-numeric: tabular-nums; }
+code { font-size: 0.92em; background: var(--sunken); padding: 1px 5px; border-radius: 4px; }
+a, .link { color: var(--accent); cursor: pointer; text-decoration: none; }
+a:hover, .link:hover { text-decoration: underline; }
+button { font: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+.bar-inner { max-width: 1280px; margin: 0 auto; padding-inline: 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; min-height: 56px; }
+.brand { font-weight: 700; letter-spacing: -0.01em; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+.brand-mark { width: 18px; height: 18px; border-radius: 4px; background: var(--accent); display: inline-block; }
+nav.tabs { display: flex; gap: 2px; flex-wrap: wrap; }
+nav.tabs button { background: none; border: 0; padding: 8px 12px; border-radius: 6px; color: var(--muted); font-weight: 500; }
+nav.tabs button[aria-current="page"] { color: var(--fg); background: var(--sunken); }
+nav.tabs button:disabled { opacity: 0.4; cursor: default; }
+.snapshot { margin-left: auto; font-size: 12.5px; color: var(--muted); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+main { max-width: 1280px; margin: 0 auto; padding: 24px 16px 64px; display: grid; gap: 20px; }
+h1 { font-size: 24px; margin: 0; letter-spacing: -0.015em; text-wrap: balance; }
+h2 { font-size: 15px; margin: 0; font-weight: 600; }
+.eyebrow { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.sub { color: var(--muted); margin: 4px 0 0; max-width: 70ch; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-content: start; }
+.seg.wrap { flex-wrap: wrap; border: 0; gap: 6px; overflow: visible; }
+.seg.wrap button { border: 1px solid var(--line); border-radius: 999px; }
+.panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.panel-head .note { font-size: 12.5px; color: var(--muted); }
+.grid2 { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); }
+.tiles { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 2px; }
+.tile .label { font-size: 12.5px; color: var(--muted); }
+.tile .value { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.tile .foot { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.delta-up { color: var(--good); } .delta-down { color: var(--bad); }
+.chip { display: inline-block; font-size: 11.5px; font-weight: 500; padding: 2px 8px; border-radius: 999px; background: var(--sunken); color: var(--muted); white-space: nowrap; }
+.chip.good { background: var(--good-bg); color: var(--good); } .chip.warn { background: var(--warn-bg); color: var(--warn); } .chip.bad { background: var(--bad-bg); color: var(--bad); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+.seg button { border: 0; background: none; padding: 4px 10px; font-size: 12.5px; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--sunken); color: var(--fg); font-weight: 500; }
+.btn { border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); border-radius: 8px; padding: 8px 14px; font-weight: 500; }
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+input[type="search"], input[type="text"], textarea, select { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; min-width: 0; }
+.empty { color: var(--muted); font-size: 13.5px; padding: 8px 0; }
+
+/* Tables */
+.tablewrap { overflow-x: auto; border-radius: 6px; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; vertical-align: top; }
+th:first-child, td:first-child { padding-left: 0; } th:last-child, td:last-child { padding-right: 0; }
+th { color: var(--muted); font-weight: 500; font-size: 12px; position: sticky; top: 0; background: var(--surface); }
+th.sortable { cursor: pointer; } th.sortable:hover { color: var(--fg); }
+td.num, th.num { text-align: right; padding-left: 18px; }
+td.wrap { white-space: normal; max-width: 40ch; }
+tr.click { cursor: pointer; } tr.click:hover td { background: var(--sunken); }
+
+/* Charts */
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart .axis text { fill: var(--faint); font-size: 11px; font-family: var(--mono); }
+.chart .grid line { stroke: var(--line); stroke-width: 1; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; background: var(--c); }
+.tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; box-shadow: 0 4px 16px rgb(0 0 0 / 0.12); min-width: 150px; z-index: 3; }
+.tip .t { color: var(--muted); margin-bottom: 4px; }
+.tip .r { display: flex; justify-content: space-between; gap: 16px; font-variant-numeric: tabular-nums; }
+.tip .r i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; background: var(--c); }
+.barlist { display: grid; gap: 6px; }
+.barrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; font-size: 13px; }
+.barrow .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.barrow .val { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12.5px; }
+.barrow .track { grid-column: 1 / -1; height: 8px; border-radius: 4px; background: var(--sunken); overflow: hidden; }
+.barrow .fill { height: 100%; background: var(--s1); border-radius: 0 4px 4px 0; }
+.barrow.click { cursor: pointer; } .barrow.click:hover .name { color: var(--accent); }
+
+/* Loader */
+.loader { max-width: 760px; margin: 6vh auto 0; display: grid; gap: 18px; }
+.drop { border: 1.5px dashed var(--line); border-radius: 12px; padding: 36px 20px; text-align: center; display: grid; gap: 12px; justify-items: center; background: var(--surface); }
+.drop.over { border-color: var(--accent); background: var(--accent-soft); }
+.filebtn { position: relative; display: inline-block; }
+.filebtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.steps { display: grid; gap: 6px; font-size: 13px; }
+.step { display: flex; gap: 10px; align-items: baseline; }
+.expect { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Explorer */
+.explorer { display: grid; gap: 20px; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); align-items: start; }
+@media (max-width: 860px) { .explorer { grid-template-columns: 1fr; } }
+.plist { max-height: 70vh; overflow-y: auto; display: grid; }
+.pitem { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 10px; padding: 8px 6px; border-bottom: 1px solid var(--line); cursor: pointer; border-radius: 6px; }
+.pitem:hover, .pitem[aria-selected="true"] { background: var(--sunken); }
+.pitem .n { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pitem .m { font-size: 12px; color: var(--muted); }
+.pitem .v { font-family: var(--mono); font-size: 12px; color: var(--muted); align-self: center; }
+.graph svg { width: 100%; height: auto; display: block; }
+.graph text { font-size: 11.5px; fill: var(--fg); }
+.graph .lbl-muted { fill: var(--muted); font-size: 10.5px; }
+.graph .node { cursor: default; } .graph .node.go { cursor: pointer; }
+.graph .node.go:hover circle { stroke: var(--accent); stroke-width: 2.5; }
+
+/* Ask */
+.ask { display: grid; gap: 16px; max-width: 900px; width: 100%; margin: 0 auto; }
+.thread { display: grid; gap: 18px; }
+.msg-user { justify-self: end; background: var(--accent-soft); padding: 10px 14px; border-radius: 12px 12px 2px 12px; max-width: 75ch; white-space: pre-wrap; }
+.msg-bot { display: grid; gap: 10px; }
+.answer p { margin: 0 0 8px; } .answer ul, .answer ol { margin: 0 0 8px; padding-left: 20px; }
+.answer pre { background: var(--sunken); padding: 10px; border-radius: 6px; overflow-x: auto; font-size: 12.5px; }
+.toolcall { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.toolcall summary { padding: 8px 12px; cursor: pointer; font-size: 12.5px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+.toolcall .body { padding: 0 12px 12px; display: grid; gap: 8px; }
+.toolcall pre { margin: 0; background: var(--sunken); padding: 8px 10px; border-radius: 6px; overflow-x: auto; font-size: 12px; white-space: pre-wrap; }
+.composer { display: grid; gap: 8px; position: sticky; bottom: 0; background: var(--bg); padding-block: 10px; }
+.composer textarea { width: 100%; box-sizing: border-box; min-height: 56px; resize: vertical; }
+.starters { display: flex; flex-wrap: wrap; gap: 8px; }
+.starters button { border: 1px solid var(--line); background: var(--surface); color: var(--fg); border-radius: 999px; padding: 6px 12px; font-size: 13px; text-align: left; }
+.starters button:hover { border-color: var(--accent); }
+.thinking { color: var(--muted); font-style: italic; }
+
+/* Tables view */
+.tables { display: grid; gap: 20px; grid-template-columns: minmax(0, 240px) minmax(0, 1fr); align-items: start; }
+@media (max-width: 860px) { .tables { grid-template-columns: 1fr; } }
+.tlist button { display: flex; justify-content: space-between; gap: 10px; width: 100%; text-align: left; background: none; border: 0; border-radius: 6px; padding: 7px 8px; color: var(--fg); }
+.tlist button[aria-current="true"], .tlist button:hover { background: var(--sunken); }
+.tlist .c { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.pager { display: flex; gap: 10px; align-items: center; font-size: 12.5px; color: var(--muted); flex-wrap: wrap; }
+.grid-scroll { max-height: 64vh; overflow: auto; }
+
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+</style>
+
+<header class="bar">
+  <div class="bar-inner">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"></span>Ark Ledger Lens</div>
+    <nav class="tabs" aria-label="Sections">
+      <button data-view="home">Home</button>
+      <button data-view="explorer">Explorer</button>
+      <button data-view="ask">Ask</button>
+      <button data-view="tables">Tables</button>
+    </nav>
+    <div class="snapshot" id="snapshot"></div>
+  </div>
+</header>
+<main id="main"></main>
+
+<script>
+"use strict";
+// ---------- Engine: DuckDB-WASM inside the artifact sandbox ----------
+// The sandbox only lets scripts come from the CDN, so the engine and its
+// Parquet extension are published beside this page and served from here.
+const DUCK_VER = "1.32.0", DUCK_CORE = "v1.4.3";
+const CDN = `https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@${DUCK_VER}`;
+const WASM_URL = new URL("duckdb-eh.gz.wasm", location.href).href;
+const EXT_REPO = new URL("ext", location.href).href;
+
+const state = {
+  view: "home", db: null, conn: null, sample: null, tables: new Map(), manifest: null,
+  home: { range: 90 }, explorer: { q: "", kind: "all", party: null }, ask: { turns: [], busy: false, ctl: null },
+  grid: { table: null, filter: "", sort: null, desc: false, page: 0 },
+};
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const qid = (s) => '"' + String(s).replaceAll('"', '""') + '"';
+const lit = (s) => "'" + String(s).replaceAll("'", "''") + "'";
+const has = (t) => state.tables.has(t);
+const hasCol = (t, c) => has(t) && state.tables.get(t).cols.some((x) => x.name === c);
+
+function workerSource() {
+  return `const WASM=${JSON.stringify(WASM_URL)};const realFetch=self.fetch.bind(self);
+self.fetch=async(input,init)=>{const url=typeof input==="string"?input:input.url;if(url!==WASM)return realFetch(input,init);
+const buf=await(await realFetch(WASM)).arrayBuffer();const h=new Uint8Array(buf,0,2);const gz=h[0]===0x1f&&h[1]===0x8b;
+const body=gz?new Blob([buf]).stream().pipeThrough(new DecompressionStream("gzip")):buf;
+return new Response(body,{headers:{"content-type":"application/wasm"}});};
+importScripts(${JSON.stringify(CDN + "/dist/duckdb-browser-eh.worker.js")});`;
+}
+async function startEngine() {
+  const duckdb = await import(CDN + "/+esm");
+  const worker = new Worker(URL.createObjectURL(new Blob([workerSource()], { type: "text/javascript" })));
+  const db = new duckdb.AsyncDuckDB(new duckdb.VoidLogger(), worker);
+  await db.instantiate(WASM_URL);
+  // Sums of BIGINT come back as HUGEINT and prices as DECIMAL, which Arrow hands to
+  // JavaScript as raw words; doubles are what the page formats.
+  await db.open({ query: { castBigIntToDouble: true, castDecimalToDouble: true } });
+  const conn = await db.connect();
+  await conn.query(`SET custom_extension_repository = ${lit(EXT_REPO)}`);
+  await conn.query("LOAD parquet");
+  state.db = db; state.conn = conn;
+}
+// Arrow hands back BIGINT as BigInt and dates as epoch numbers; flatten to JSON-safe values.
+const plain = (v) => typeof v === "bigint" ? (Number.isSafeInteger(Number(v)) ? Number(v) : v.toString())
+  : v instanceof Date ? v.toISOString() : (v && typeof v === "object" && typeof v.toJSON === "function") ? v.toJSON() : v;
+async function q(sql) {
+  const res = await state.conn.query(sql);
+  // Arrow reports DATE and TIMESTAMP as epoch milliseconds; turn them back into readable ISO text.
+  const kind = Object.fromEntries(res.schema.fields.map((f) => [f.name, /^Date/.test(String(f.type)) ? "date" : /^Timestamp/.test(String(f.type)) ? "ts" : ""]));
+  const val = (k, v) => typeof v === "number" && kind[k] ? (kind[k] === "date" ? new Date(v).toISOString().slice(0, 10) : new Date(v).toISOString().replace("T", " ").slice(0, 19)) : plain(v);
+  return res.toArray().map((r) => Object.fromEntries(Object.entries(r.toJSON()).map(([k, v]) => [k, val(k, v)])));
+}
+// Client accounts are credit-normal: the ledger stores money held for a client as a
+// negative balance. Shown to people, it is flipped so "held for them" reads positive.
+const held = (addr, v) => (String(addr || "").startsWith("clients:") ? -1 : 1) * (Number(v) || 0);
+const one = async (sql) => (await q(sql))[0] || {};
+
+// ---------- Formatting ----------
+const nf = new Intl.NumberFormat("en-US");
+function money(v, { compact = true } = {}) {
+  const n = Number(v); if (!Number.isFinite(n)) return "–";
+  if (!compact || Math.abs(n) < 10000) return (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString("en-US", { maximumFractionDigits: 2, minimumFractionDigits: Math.abs(n) < 100 ? 2 : 0 });
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 }).format(n);
+}
+const count = (v) => Number.isFinite(Number(v)) ? nf.format(Number(v)) : "–";
+const pct = (v) => (v > 0 ? "+" : "") + (v * 100).toFixed(1) + "%";
+const kycChip = (s) => { const k = String(s || "").toLowerCase(); const cls = /approv|clear|pass|verified|active/.test(k) ? "good" : /pend|review|progress/.test(k) ? "warn" : /reject|fail|block|denied/.test(k) ? "bad" : ""; return s ? `<span class="chip ${cls}">${esc(s)}</span>` : ""; };
+function cell(v) {
+  if (v === null || v === undefined) return '<span style="color:var(--faint)">–</span>';
+  if (typeof v === "number") return Number.isInteger(v) ? nf.format(v) : v.toLocaleString("en-US", { maximumFractionDigits: 4 });
+  if (typeof v === "object") return esc(JSON.stringify(v));
+  return esc(v);
+}
+
+// ---------- Loading files ----------
+const EXPECTED = ["parties", "accounts", "transactions", "postings", "daily_volume", "revenue", "fees", "payment_corridors", "payments_in_flight", "reserve_positions", "senders", "beneficial_owners", "ownership_links", "ownership_nodes"];
+async function loadFiles(list, status) {
+  const files = [...(list || [])];
+  if (!files.length) return status("No files came through. Try dragging them onto the box instead.");
+  for (const f of files) {
+    try {
+      if (/manifest\.json$/i.test(f.name)) { state.manifest = JSON.parse(await f.text()); continue; }
+      if (!/\.parquet$/i.test(f.name)) { status(`Skipped ${f.name}: not a Parquet file.`); continue; }
+      const name = f.name.replace(/\.parquet$/i, "").replace(/[^A-Za-z0-9_]/g, "_");
+      status(`Loading ${f.name} (${(f.size / 1e6).toFixed(1)} MB)...`);
+      await state.db.registerFileBuffer(f.name, new Uint8Array(await f.arrayBuffer()));
+      // Materialised once so every later query reads from memory, not the Parquet bytes.
+      await state.conn.query(`CREATE OR REPLACE TABLE ${qid(name)} AS SELECT * FROM read_parquet(${lit(f.name)})`);
+      const cols = (await q(`SELECT column_name AS name, data_type AS type FROM information_schema.columns WHERE table_name = ${lit(name)} ORDER BY ordinal_position`));
+      const rows = (await one(`SELECT count(*) AS n FROM ${qid(name)}`)).n;
+      state.tables.set(name, { rows, cols });
+    } catch (e) {
+      return status(`Could not load ${f.name}: ${e.message || e}`);
+    }
+  }
+  status("");
+  if (state.tables.size) { renderSnapshot(); go(location.hash.slice(1) || "home"); }
+}
+
+function renderLoader(msg = "") {
+  setTabs(false);
+  $("#main").innerHTML = `
+  <div class="loader">
+    <div>
+      <div class="eyebrow">Ark dev ledger</div>
+      <h1>Load your export to begin</h1>
+      <p class="sub">Choose every file in <code>ark/out/</code> from the demo branch's export. The files are read here in your browser and never uploaded. Only the results of questions you ask go to Claude.</p>
+    </div>
+    <div class="drop" id="drop">
+      <div><b>Drop the Parquet files here</b></div>
+      <div class="sub" style="margin:0">or</div>
+      <label class="btn filebtn">Choose files<input type="file" id="pick" multiple accept=".parquet,.json"></label>
+      <div class="sub" id="loadstatus" aria-live="polite" style="margin:0">${esc(msg)}</div>
+    </div>
+    <div class="panel">
+      <h2>What the export contains</h2>
+      <div class="expect">${EXPECTED.map((t) => `<span class="chip">${t}</span>`).join("")}</div>
+      <p class="sub" style="margin:0">Any subset works; sections that need a missing file say so. Including <code>manifest.json</code> shows when the export was taken. To refresh the files, run <code>./ark/demo.sh</code> or the export step alone.</p>
+    </div>
+  </div>`;
+  const status = (s) => { const el = $("#loadstatus"); if (el) el.textContent = s; };
+  if (!msg) status(state.conn ? "Ready. Choose or drop your files." : engineError || "Starting the query engine...");
+  $("#pick").addEventListener("change", (e) => { if (state.conn) loadFiles(e.target.files, status); e.target.value = ""; });
+  const drop = $("#drop");
+  for (const ev of ["dragenter", "dragover"]) drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("over"); });
+  for (const ev of ["dragleave", "drop"]) drop.addEventListener(ev, () => drop.classList.remove("over"));
+  drop.addEventListener("drop", (e) => { e.preventDefault(); if (state.conn) loadFiles(e.dataTransfer.files, status); });
+}
+
+function renderSnapshot() {
+  const m = state.manifest;
+  const when = m?.exported_at ? new Date(m.exported_at).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) : null;
+  $("#snapshot").innerHTML = `<span>${state.tables.size} datasets</span>${when ? `<span>Exported ${esc(when)}</span>` : ""}<span class="chip">dev</span><button class="link" id="reload" style="background:none;border:0;padding:0">Load other files</button>`;
+  $("#reload").onclick = () => { state.tables.clear(); state.manifest = null; $("#snapshot").innerHTML = ""; renderLoader(); };
+}
+
+// ---------- Navigation ----------
+function setTabs(enabled) {
+  for (const b of document.querySelectorAll("nav.tabs button")) {
+    b.disabled = !enabled;
+    b.setAttribute("aria-current", enabled && b.dataset.view === state.view ? "page" : "false");
+  }
+}
+document.querySelectorAll("nav.tabs button").forEach((b) => b.addEventListener("click", () => go(b.dataset.view)));
+const VIEWS = { home: renderHome, explorer: renderExplorer, ask: renderAsk, tables: renderTables };
+function go(view, opts = {}) {
+  if (!state.tables.size) return renderLoader();
+  state.view = VIEWS[view] ? view : "home";
+  try { history.replaceState(null, "", "#" + state.view); } catch {}
+  setTabs(true);
+  Object.assign(state[state.view === "tables" ? "grid" : state.view] || {}, opts);
+  window.scrollTo(0, 0);
+  VIEWS[state.view]().catch((e) => { $("#main").innerHTML = `<div class="panel"><h2>Something went wrong</h2><p class="sub">${esc(e.message || e)}</p></div>`; });
+}
+const partyLink = (id, name) => `<span class="link" data-party="${esc(id)}">${esc(name || id)}</span>`;
+document.addEventListener("click", (e) => {
+  const p = e.target.closest("[data-party]");
+  if (p && p.dataset.party) go("explorer", { party: p.dataset.party });
+});
+
+// ---------- Charts ----------
+function niceMax(v) { if (v <= 0) return 1; const p = Math.pow(10, Math.floor(Math.log10(v))); const m = v / p; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10) * p; }
+const tickFmt = (v) => new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(v);
+
+// Line chart over dates with a crosshair tooltip. series: [{name, color, values:[number]}]
+function lineChart(el, labels, series, { fmt = money, height = 240 } = {}) {
+  const W = 720, H = height, L = 48, R = 12, T = 12, B = 26;
+  const max = niceMax(Math.max(1, ...series.flatMap((s) => s.values)));
+  const x = (i) => L + (labels.length < 2 ? 0 : (i / (labels.length - 1)) * (W - L - R));
+  const y = (v) => T + (1 - v / max) * (H - T - B);
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => f * max);
+  const xt = labels.length ? [0, Math.floor((labels.length - 1) / 2), labels.length - 1] : [];
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(series.map((s) => s.name).join(" and "))} over time">
+    <g class="grid">${ticks.map((t) => `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}"/>`).join("")}</g>
+    <g class="axis">${ticks.map((t) => `<text x="${L - 8}" y="${y(t) + 4}" text-anchor="end">${tickFmt(t)}</text>`).join("")}
+      ${xt.map((i) => `<text x="${x(i)}" y="${H - 6}" text-anchor="${i === 0 ? "start" : i === labels.length - 1 ? "end" : "middle"}">${esc(labels[i])}</text>`).join("")}</g>
+    ${series.map((s) => `<path d="${s.values.map((v, i) => (i ? "L" : "M") + x(i).toFixed(1) + " " + y(v).toFixed(1)).join("")}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`).join("")}
+    <line class="xh" x1="0" x2="0" y1="${T}" y2="${H - B}" stroke="var(--faint)" stroke-dasharray="3 3" visibility="hidden"/>
+    ${series.map((s, k) => `<circle class="dot${k}" r="4" fill="${s.color}" stroke="var(--surface)" stroke-width="2" visibility="hidden"/>`).join("")}
+    <rect x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent" class="hit"/>
+  </svg><div class="tip" hidden></div>`;
+  const svg = $("svg", el), tip = $(".tip", el), xh = $(".xh", el);
+  const move = (ev) => {
+    const r = svg.getBoundingClientRect(); const px = ((ev.clientX - r.left) / r.width) * W;
+    const i = Math.max(0, Math.min(labels.length - 1, Math.round(((px - L) / (W - L - R)) * (labels.length - 1))));
+    xh.setAttribute("x1", x(i)); xh.setAttribute("x2", x(i)); xh.setAttribute("visibility", "visible");
+    series.forEach((s, k) => { const d = $(".dot" + k, el); d.setAttribute("cx", x(i)); d.setAttribute("cy", y(s.values[i])); d.setAttribute("visibility", "visible"); });
+    tip.innerHTML = `<div class="t">${esc(labels[i])}</div>` + series.map((s) => `<div class="r"><span><i style="--c:${s.color}"></i>${esc(s.name)}</span><b>${fmt(s.values[i])}</b></div>`).join("");
+    tip.hidden = false;
+    const left = (x(i) / W) * r.width; tip.style.left = Math.min(left + 12, r.width - tip.offsetWidth) + "px"; tip.style.top = "8px";
+  };
+  const hit = $(".hit", el);
+  hit.addEventListener("pointermove", move);
+  hit.addEventListener("pointerleave", () => { tip.hidden = true; xh.setAttribute("visibility", "hidden"); series.forEach((_, k) => $(".dot" + k, el).setAttribute("visibility", "hidden")); });
+}
+// Vertical columns with a per-bar tooltip, one series.
+function columnChart(el, labels, values, { fmt = money, color = "var(--s1)" } = {}) {
+  const W = 720, H = 220, L = 48, R = 8, T = 10, B = 26, gap = 2;
+  const max = niceMax(Math.max(1, ...values)); const n = values.length || 1;
+  // Few periods would make slabs; cap the column width and keep the slot spacing.
+  const slot = (W - L - R) / n, bw = Math.min(slot, 56); const y = (v) => T + (1 - v / max) * (H - T - B);
+  const ticks = [0, 0.5, 1].map((f) => f * max);
+  const step = Math.ceil(n / 8);
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Columns by period">
+    <g class="grid">${ticks.map((t) => `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}"/>`).join("")}</g>
+    <g class="axis">${ticks.map((t) => `<text x="${L - 8}" y="${y(t) + 4}" text-anchor="end">${tickFmt(t)}</text>`).join("")}
+      ${labels.map((l, i) => i % step ? "" : `<text x="${L + slot * i + slot / 2}" y="${H - 6}" text-anchor="middle">${esc(l)}</text>`).join("")}</g>
+    ${values.map((v, i) => { const h = Math.max(0, H - B - y(v)); const r = Math.min(4, (bw - gap) / 2, h);
+      const x0 = L + slot * i + (slot - bw) / 2 + gap / 2, w = bw - gap, y0 = H - B - h;
+      return `<path data-i="${i}" fill="${color}" d="M${x0} ${H - B}V${y0 + r}Q${x0} ${y0} ${x0 + r} ${y0}H${x0 + w - r}Q${x0 + w} ${y0} ${x0 + w} ${y0 + r}V${H - B}Z"/>`; }).join("")}
+    ${values.map((_, i) => `<rect data-i="${i}" x="${L + slot * i}" y="${T}" width="${slot}" height="${H - T - B}" fill="transparent"/>`).join("")}
+  </svg><div class="tip" hidden></div>`;
+  const svg = $("svg", el), tip = $(".tip", el);
+  svg.querySelectorAll("rect[data-i]").forEach((rc) => {
+    rc.addEventListener("pointerenter", () => {
+      const i = +rc.dataset.i; const r = svg.getBoundingClientRect();
+      tip.innerHTML = `<div class="t">${esc(labels[i])}</div><div class="r"><b>${fmt(values[i])}</b></div>`; tip.hidden = false;
+      tip.style.left = Math.min(((L + slot * i + slot) / W) * r.width + 6, r.width - tip.offsetWidth) + "px"; tip.style.top = "8px";
+    });
+    rc.addEventListener("pointerleave", () => { tip.hidden = true; });
+  });
+}
+// Horizontal bar list: readable names, values as text, bar for magnitude.
+function barList(rows, { fmt = money, party = false } = {}) {
+  if (!rows.length) return `<div class="empty">No rows for this period.</div>`;
+  const max = Math.max(...rows.map((r) => Math.abs(Number(r.value)) || 0), 1);
+  return `<div class="barlist">${rows.map((r) => `<div class="barrow${party && r.id ? " click" : ""}" ${party && r.id ? `data-party="${esc(r.id)}"` : ""} title="${esc(r.label)}: ${esc(fmt(r.value))}">
+    <span class="name">${esc(r.label)}</span><span class="val">${fmt(r.value)}</span>
+    <span class="track"><span class="fill" style="width:${(Math.abs(Number(r.value)) / max * 100).toFixed(1)}%"></span></span></div>`).join("")}</div>`;
+}
+function table(rows, cols, { party = null, numeric = [] } = {}) {
+  if (!rows.length) return `<div class="empty">No rows.</div>`;
+  const isNum = (c) => numeric.includes(c) || rows.every((r) => r[c] === null || typeof r[c] === "number");
+  return `<div class="tablewrap"><table><thead><tr>${cols.map((c) => `<th class="${isNum(c[0]) ? "num" : ""}">${esc(c[1])}</th>`).join("")}</tr></thead><tbody>
+    ${rows.map((r) => `<tr${party && r[party] ? ` class="click" data-party="${esc(r[party])}"` : ""}>${cols.map(([k, , f]) => `<td class="${isNum(k) ? "num" : ""}">${f ? f(r[k], r) : cell(r[k])}</td>`).join("")}</tr>`).join("")}
+  </tbody></table></div>`;
+}
+const missing = (t) => `<div class="empty">Needs <code>${t}.parquet</code>, which isn't loaded.</div>`;
+
+// ---------- Home ----------
+async function renderHome() {
+  const s = state.home;
+  $("#main").innerHTML = `
+  <div><div class="eyebrow">Overview</div><h1>Ark on the dev ledger</h1><p class="sub" id="homesub"></p></div>
+  <div class="tiles" id="tiles"></div>
+  <div class="grid2">
+    <section class="panel"><div class="panel-head"><h2>Settled volume</h2>
+      <div class="seg" id="range">${[30, 90, 180, 0].map((d) => `<button data-d="${d}" aria-pressed="${s.range === d}">${d ? d + "d" : "All"}</button>`).join("")}</div></div>
+      <div class="legend"><span style="--c:var(--s1)">Inbound</span><span style="--c:var(--s2)">Outbound</span></div>
+      <div class="chart" id="volchart"></div></section>
+    <section class="panel"><div class="panel-head"><h2>Top parties by volume</h2><span class="note" id="topnote"></span></div><div id="top"></div></section>
+    <section class="panel"><div class="panel-head"><h2>Volume by rail</h2><span class="note">same period</span></div><div id="rails"></div></section>
+    <section class="panel"><div class="panel-head"><h2>Revenue by month</h2></div><div class="chart" id="rev"></div></section>
+    <section class="panel"><div class="panel-head"><h2>Payment corridors</h2><span class="note">same period, by volume</span></div><div id="corr"></div></section>
+    <section class="panel"><div class="panel-head"><h2>Reserve positions</h2><span class="note">as recorded</span></div><div id="reserves"></div></section>
+  </div>`;
+  $("#range").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { s.range = +b.dataset.d; renderHome(); } });
+
+  const tiles = [];
+  if (has("parties")) {
+    const p = await q(`SELECT party_kind AS k, count(*) AS n FROM parties GROUP BY 1 ORDER BY 2 DESC`);
+    const cust = p.find((r) => r.k === "customer")?.n ?? 0;
+    tiles.push({ label: "Customers", value: count(cust), foot: `${count(p.reduce((a, r) => a + r.n, 0))} parties in all` });
+  }
+  if (has("accounts")) {
+    // Client accounts are credit-normal in the ledger: a negative settled balance is money held for the client.
+    const b = await q(`SELECT asset, -sum(settled_balance) AS held, count(DISTINCT party_id) AS holders FROM accounts WHERE account_type = 'clients' GROUP BY 1 ORDER BY 2 DESC`);
+    if (b.length) tiles.push({ label: `Customer balances (${b[0].asset})`, value: money(b[0].held), foot: `${count(b[0].holders)} customers holding` });
+  }
+  let where = "";
+  if (has("daily_volume")) {
+    const end = (await one(`SELECT max(period_day)::VARCHAR AS d FROM daily_volume`)).d;
+    where = s.range ? `WHERE period_day > DATE ${lit(end)} - INTERVAL ${s.range} DAY` : "";
+    $("#homesub").textContent = `Data through ${new Date(end + "T00:00:00").toLocaleDateString("en-US", { dateStyle: "medium" })}. Amounts in US dollars.`;
+    if (s.range) {
+      const v = await one(`SELECT sum(volume_usd) FILTER (WHERE period_day > DATE ${lit(end)} - INTERVAL ${s.range} DAY) AS cur,
+        sum(volume_usd) FILTER (WHERE period_day <= DATE ${lit(end)} - INTERVAL ${s.range} DAY AND period_day > DATE ${lit(end)} - INTERVAL ${2 * s.range} DAY) AS prev,
+        sum(txn_count) FILTER (WHERE period_day > DATE ${lit(end)} - INTERVAL ${s.range} DAY) AS n FROM daily_volume`);
+      const d = v.prev ? (v.cur - v.prev) / v.prev : null;
+      tiles.push({ label: `Volume, last ${s.range} days`, value: money(v.cur), foot: (d === null ? "" : `<span class="${d >= 0 ? "delta-up" : "delta-down"}">${pct(d)}</span> vs prior ${s.range} days · `) + `${count(v.n)} transactions` });
+    } else {
+      const v = await one(`SELECT sum(volume_usd) AS cur, sum(txn_count) AS n FROM daily_volume`);
+      tiles.push({ label: "Volume, all time", value: money(v.cur), foot: `${count(v.n)} transactions` });
+    }
+    const series = await q(`SELECT period_day::VARCHAR AS d, sum(volume_usd) FILTER (WHERE direction = 'inbound') AS i, sum(volume_usd) FILTER (WHERE direction = 'outbound') AS o FROM daily_volume ${where} GROUP BY 1 ORDER BY 1`);
+    const labels = series.map((r) => new Date(r.d + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }));
+    lineChart($("#volchart"), labels, [{ name: "Inbound", color: "var(--s1)", values: series.map((r) => r.i || 0) }, { name: "Outbound", color: "var(--s2)", values: series.map((r) => r.o || 0) }]);
+    const top = await q(`SELECT v.party_id AS id, coalesce(${has("parties") ? "p.party_name" : "NULL"}, v.party_id) AS label, sum(volume_usd) AS value FROM daily_volume v ${has("parties") ? "LEFT JOIN parties p USING (party_id)" : ""} ${where.replace("period_day", "v.period_day")} GROUP BY 1, 2 ORDER BY 3 DESC LIMIT 10`);
+    $("#top").innerHTML = barList(top, { party: true });
+    $("#topnote").textContent = "click a party to open it";
+    $("#rails").innerHTML = barList(await q(`SELECT rail AS label, sum(volume_usd) AS value FROM daily_volume ${where} GROUP BY 1 ORDER BY 2 DESC`));
+  } else {
+    for (const id of ["#volchart", "#top", "#rails"]) $(id).innerHTML = missing("daily_volume");
+  }
+  if (has("revenue")) {
+    const r = await q(`SELECT strftime(period_month, '%b %y') AS m, sum(revenue_usd) AS v FROM revenue GROUP BY period_month ORDER BY period_month`);
+    columnChart($("#rev"), r.map((x) => x.m), r.map((x) => x.v || 0));
+    const t = await one(`SELECT sum(revenue_usd) AS v FROM revenue WHERE period_month >= (SELECT max(period_month) FROM revenue) - INTERVAL 11 MONTH`);
+    tiles.push({ label: "Revenue, last 12 months", value: money(t.v), foot: "fees earned on settled flow" });
+  } else $("#rev").innerHTML = missing("revenue");
+  if (has("payment_corridors")) {
+    // Corridors are monthly, so the period filter applies to the month a row starts in.
+    $("#corr").innerHTML = barList(await q(`SELECT coalesce(entity_jurisdiction, '?') || ' → ' || coalesce(counterparty_jurisdiction, '?') AS label, sum(volume_usd) AS value FROM payment_corridors ${where.replace("period_day", "period_month")} GROUP BY 1 ORDER BY 2 DESC LIMIT 8`));
+  } else $("#corr").innerHTML = missing("payment_corridors");
+  if (has("reserve_positions")) {
+    const open = hasCol("reserve_positions", "closed_at") ? "WHERE closed_at IS NULL" : "";
+    const r = await q(`SELECT instrument_id, asset_class, custody_location, qty, mark_price FROM reserve_positions ${open} ORDER BY qty DESC`);
+    $("#reserves").innerHTML = table(r, [["instrument_id", "Instrument"], ["asset_class", "Class"], ["custody_location", "Custody"], ["qty", "Quantity"], ["mark_price", "Mark"]]);
+  } else $("#reserves").innerHTML = missing("reserve_positions");
+  if (has("payments_in_flight")) {
+    const f = await one(`SELECT count(*) AS n, sum(amount_usd) AS v FROM payments_in_flight`);
+    tiles.push({ label: "Payments in flight", value: count(f.n), foot: `${money(f.v)} not yet settled` });
+  }
+  $("#tiles").innerHTML = tiles.map((t) => `<div class="tile"><span class="label">${esc(t.label)}</span><span class="value">${t.value}</span><span class="foot">${t.foot}</span></div>`).join("");
+}
+
+// ---------- Explorer ----------
+async function renderExplorer() {
+  const s = state.explorer;
+  if (!has("parties")) { $("#main").innerHTML = `<div class="panel"><h2>Explorer</h2>${missing("parties")}</div>`; return; }
+  const kinds = (await q(`SELECT party_kind AS k, count(*) AS n FROM parties GROUP BY 1 ORDER BY 2 DESC`));
+  $("#main").innerHTML = `
+  <div><div class="eyebrow">Explorer</div><h1>Parties</h1><p class="sub">Every customer, bank and issuer on the ledger, with their accounts, activity and owners.</p></div>
+  <div class="explorer">
+    <aside class="panel">
+      <input type="search" id="pq" placeholder="Search name or id" value="${esc(s.q)}" aria-label="Search parties">
+      <div class="seg wrap" id="pk">${[{ k: "all", n: kinds.reduce((a, r) => a + r.n, 0) }, ...kinds].map((r) => `<button data-k="${esc(r.k)}" aria-pressed="${s.kind === r.k}">${esc(r.k)} <span class="num">${r.n}</span></button>`).join("")}</div>
+      <div class="plist" id="plist" role="listbox" aria-label="Parties"></div>
+    </aside>
+    <section id="pdetail"></section>
+  </div>`;
+  const vol = has("daily_volume");
+  const list = async () => {
+    const cond = [s.kind !== "all" ? `p.party_kind = ${lit(s.kind)}` : "", s.q ? `(p.party_name ILIKE ${lit("%" + s.q + "%")} OR p.party_id ILIKE ${lit("%" + s.q + "%")})` : ""].filter(Boolean).join(" AND ");
+    const rows = await q(`SELECT p.party_id, p.party_name, p.party_kind, p.country ${vol ? ", v.vol" : ""} FROM parties p
+      ${vol ? "LEFT JOIN (SELECT party_id, sum(volume_usd) AS vol FROM daily_volume GROUP BY 1) v USING (party_id)" : ""}
+      ${cond ? "WHERE " + cond : ""} ORDER BY ${vol ? "v.vol DESC NULLS LAST," : ""} p.party_name LIMIT 200`);
+    $("#plist").innerHTML = rows.length ? rows.map((r) => `<div class="pitem" role="option" data-pid="${esc(r.party_id)}" aria-selected="${r.party_id === s.party}">
+      <span class="n">${esc(r.party_name || r.party_id)}</span><span class="v">${vol && r.vol ? money(r.vol) : ""}</span>
+      <span class="m">${esc(r.party_kind)}${r.country ? " · " + esc(r.country) : ""}</span></div>`).join("") : `<div class="empty">No parties match.</div>`;
+    if (!s.party && rows[0]) { s.party = rows[0].party_id; renderParty(); }
+  };
+  $("#pq").addEventListener("input", (e) => { s.q = e.target.value; list(); });
+  $("#pk").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; s.kind = b.dataset.k; $("#pk").querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x === b)); list(); });
+  $("#plist").addEventListener("click", (e) => { const it = e.target.closest("[data-pid]"); if (!it) return; s.party = it.dataset.pid; $("#plist").querySelectorAll(".pitem").forEach((x) => x.setAttribute("aria-selected", x === it)); renderParty(); });
+  await list();
+  if (s.party) await renderParty();
+}
+
+async function renderParty() {
+  const id = state.explorer.party, el = $("#pdetail");
+  if (!id || !el) return;
+  const p = await one(`SELECT * FROM parties WHERE party_id = ${lit(id)}`);
+  if (!p.party_id) { el.innerHTML = `<div class="panel"><div class="empty">Party ${esc(id)} isn't in the loaded parties file.</div></div>`; return; }
+  const P = lit(id);
+  const accounts = has("accounts") ? await q(`SELECT account_address, account_class, asset, settled_balance, pending_balance, posting_count, strftime(last_activity_at, '%Y-%m-%d') AS last FROM accounts WHERE party_id = ${P} ORDER BY abs(settled_balance) DESC NULLS LAST`) : [];
+  const vol = has("daily_volume") ? await one(`SELECT sum(volume_usd) AS v, sum(txn_count) AS n FROM daily_volume WHERE party_id = ${P} AND period_day > (SELECT max(period_day) FROM daily_volume) - INTERVAL 90 DAY`) : {};
+  const owners = has("beneficial_owners") ? await q(`SELECT owner_name, owner_kind, role, ownership_pct, jurisdiction_of_incorporation, screening_state FROM beneficial_owners WHERE party_id = ${P} ORDER BY ownership_pct DESC NULLS LAST`) : [];
+  // Counterparties: other parties posting in the same transactions.
+  const cps = has("postings") ? await q(`WITH mine AS (SELECT DISTINCT txn_id FROM postings WHERE party_id = ${P})
+    SELECT o.party_id AS id, ${has("parties") ? "coalesce(any_value(pp.party_name), o.party_id)" : "o.party_id"} AS name, count(DISTINCT o.txn_id) AS n, sum(abs(o.amount)) AS v
+    FROM postings o JOIN mine USING (txn_id) ${has("parties") ? "LEFT JOIN parties pp ON pp.party_id = o.party_id" : ""}
+    WHERE o.party_id IS NOT NULL AND o.party_id <> ${P} GROUP BY o.party_id ORDER BY v DESC LIMIT 6`) : [];
+  const recent = has("postings") ? await q(`SELECT strftime(x.effective_ts, '%Y-%m-%d %H:%M') AS at, ${has("transactions") ? "t.transaction_type" : "NULL"} AS type, x.account_address, x.asset, x.amount, x.layer
+    FROM postings x ${has("transactions") ? "LEFT JOIN transactions t USING (txn_id)" : ""} WHERE x.party_id = ${P} ORDER BY x.effective_ts DESC LIMIT 15`) : [];
+  const senders = has("senders") ? await q(`SELECT sender_name, sender_country, sum(volume_usd) AS v, sum(txn_count) AS n FROM senders WHERE party_id = ${P} GROUP BY 1, 2 ORDER BY 3 DESC LIMIT 8`) : [];
+  const spark = has("daily_volume") ? await q(`SELECT period_day::VARCHAR AS d, sum(volume_usd) AS v FROM daily_volume WHERE party_id = ${P} AND period_day > (SELECT max(period_day) FROM daily_volume) - INTERVAL 90 DAY GROUP BY 1 ORDER BY 1`) : [];
+  for (const a of accounts) a.balance = held(a.account_address, a.settled_balance);
+  const total = accounts.reduce((s, r) => s + r.balance, 0);
+
+  el.innerHTML = `<div style="display:grid;gap:20px">
+    <div class="panel">
+      <div class="panel-head"><div><div class="eyebrow">${esc(p.party_kind)}${p.country ? " · " + esc(p.country) : ""}</div><h1>${esc(p.party_name || p.party_id)}</h1></div>
+        <div style="display:flex;gap:8px;align-items:center">${kycChip(p.kyc_status)}<span class="chip mono">${esc(p.party_id)}</span></div></div>
+      <div class="tiles">
+        <div class="tile"><span class="label">Settled balance</span><span class="value">${accounts.length ? money(total) : "–"}</span><span class="foot">${accounts.length} account${accounts.length === 1 ? "" : "s"}</span></div>
+        <div class="tile"><span class="label">Volume, last 90 days</span><span class="value">${vol.v ? money(vol.v) : "–"}</span><span class="foot">${vol.n ? count(vol.n) + " transactions" : "no activity"}</span></div>
+        <div class="tile"><span class="label">Beneficial owners</span><span class="value">${owners.length || "–"}</span><span class="foot">${owners.length ? "declared" : has("beneficial_owners") ? "none declared" : "not loaded"}</span></div>
+      </div>
+      ${spark.length > 1 ? `<div class="chart" id="pspark"></div>` : ""}
+    </div>
+    <div class="grid2">
+      <section class="panel"><div class="panel-head"><h2>Relationships</h2><span class="note">click a counterparty to open it</span></div><div class="graph" id="pgraph"></div></section>
+      <section class="panel"><h2>Accounts</h2>${has("accounts") ? table(accounts, [["account_address", "Address", (v) => `<span class="mono">${esc(v)}</span>`], ["asset", "Asset"], ["balance", "Balance", (v) => money(v, { compact: false })], ["posting_count", "Postings"], ["last", "Last activity"]], { numeric: ["balance", "posting_count"] }) : missing("accounts")}</section>
+    </div>
+    <section class="panel"><h2>Recent postings</h2>${has("postings") ? table(recent, [["at", "When"], ["type", "Type"], ["account_address", "Account", (v) => `<span class="mono">${esc(v)}</span>`], ["amount", "Amount", (v) => money(v, { compact: false })], ["layer", "Layer"]], { numeric: ["amount"] }) : missing("postings")}</section>
+    <div class="grid2">
+      <section class="panel"><h2>Beneficial owners</h2>${has("beneficial_owners") ? table(owners, [["owner_name", "Name"], ["owner_kind", "Kind"], ["role", "Role"], ["ownership_pct", "Stake", (v) => v === null ? "–" : Number(v).toFixed(1) + "%"], ["jurisdiction_of_incorporation", "Jurisdiction"], ["screening_state", "Screening", (v) => kycChip(v)]], { numeric: ["ownership_pct"] }) : missing("beneficial_owners")}</section>
+      <section class="panel"><h2>Top senders</h2>${has("senders") ? table(senders, [["sender_name", "Sender"], ["sender_country", "Country"], ["v", "Volume", (v) => money(v)], ["n", "Transactions"]], { numeric: ["v", "n"] }) : missing("senders")}</section>
+    </div></div>`;
+  if (spark.length > 1) lineChart($("#pspark"), spark.map((r) => new Date(r.d + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })), [{ name: "Volume", color: "var(--s1)", values: spark.map((r) => r.v || 0) }], { height: 150 });
+  drawGraph($("#pgraph"), p, accounts, owners, cps);
+}
+
+// A radial picture of one party: accounts and owners on the inner ring, counterparties outside.
+function drawGraph(el, p, accounts, owners, cps) {
+  const W = 560, H = 380, cx = W / 2, cy = H / 2;
+  const inner = [...accounts.slice(0, 6).map((a) => ({ kind: "account", label: a.account_class || a.account_address, sub: money(a.balance) })),
+                 ...owners.slice(0, 4).map((o) => ({ kind: "owner", label: o.owner_name, sub: o.ownership_pct === null ? o.role : Number(o.ownership_pct).toFixed(0) + "%" }))];
+  const outer = cps.map((c) => ({ kind: "cp", id: c.id, label: c.name, sub: count(c.n) + " txns" }));
+  if (!inner.length && !outer.length) { el.innerHTML = `<div class="empty">No accounts, owners or counterparties loaded for this party.</div>`; return; }
+  const place = (arr, r, off) => arr.map((n, i) => ({ ...n, x: cx + r * Math.cos(off + (i / arr.length) * Math.PI * 2), y: cy + r * Math.sin(off + (i / arr.length) * Math.PI * 2) }));
+  const a = place(inner, 105, -Math.PI / 2), b = place(outer, 165, -Math.PI / 2 + Math.PI / Math.max(outer.length, 1));
+  const color = { account: "var(--s1)", owner: "var(--s2)", cp: "var(--faint)" };
+  const trunc = (s, n = 20) => (s = String(s ?? "")).length > n ? s.slice(0, n - 1) + "…" : s;
+  const node = (n) => `<g class="node${n.id ? " go" : ""}" ${n.id ? `data-party="${esc(n.id)}"` : ""}>
+      <circle cx="${n.x}" cy="${n.y}" r="${n.kind === "cp" ? 7 : 8}" fill="${n.kind === "cp" ? "var(--surface)" : color[n.kind]}" stroke="${color[n.kind]}" stroke-width="2"/>
+      <text x="${n.x}" y="${n.y + (n.y < cy ? -14 : 20)}" text-anchor="middle">${esc(trunc(n.label))}</text>
+      <text class="lbl-muted" x="${n.x}" y="${n.y + (n.y < cy ? -27 : 33)}" text-anchor="middle">${esc(n.sub)}</text><title>${esc(n.label)}</title></g>`;
+  el.innerHTML = `<svg viewBox="-40 -20 ${W + 80} ${H + 40}" role="img" aria-label="Accounts, owners and counterparties of ${esc(p.party_name)}">
+    ${[...a, ...b].map((n) => `<line x1="${cx}" y1="${cy}" x2="${n.x}" y2="${n.y}" stroke="var(--line)" stroke-width="1.5" ${n.kind === "cp" ? 'stroke-dasharray="4 3"' : ""}/>`).join("")}
+    <circle cx="${cx}" cy="${cy}" r="14" fill="var(--accent)"/>
+    <text x="${cx}" y="${cy + 32}" text-anchor="middle" style="font-weight:600">${esc(trunc(p.party_name || p.party_id, 26))}</text>
+    ${[...a, ...b].map(node).join("")}
+  </svg><div class="legend"><span style="--c:var(--s1)">Account</span><span style="--c:var(--s2)">Owner</span><span style="--c:var(--faint)">Counterparty</span></div>`;
+}
+
+// ---------- Ask ----------
+const RULES = () => `You answer questions about Ark's dev-environment ledger data for an executive audience, using DuckDB SQL over these tables:
+
+${[...state.tables].map(([n, t]) => `${n} (${t.rows} rows): ${t.cols.map((c) => c.name + " " + c.type).join(", ")}`).join("\n")}
+
+Facts about the data:
+- party_id identifies a customer, bank or issuer; parties.party_name is its name. Every table's party_id joins to parties.
+- Amounts ending in _usd and the amount and balance columns are decimal US dollars (ArkUSD is a dollar stablecoin). Never add amounts of different assets.
+- accounts.account_type is the first segment of the ledger address (clients, banks, platform, ...). Client accounts are credit-normal: a negative settled_balance is money Ark holds for that client.
+- daily_volume and revenue are already aggregated per party per day or month.
+
+Use the run_sql tool for every figure; it returns at most 50 rows as JSON. Prefer one well-aggregated query over many. Then answer in a few short sentences or a small list: lead with the answer, give the key figures formatted as dollars, and mention any caveat in the data. Do not show SQL in the answer; the page shows it.`;
+
+function starters() {
+  const s = [];
+  if (has("daily_volume")) s.push("How has settled volume trended over the last three months?");
+  if (has("accounts")) s.push("Which customers hold the largest balances?");
+  if (has("revenue")) s.push("Which customers generated the most revenue, and at what rate?");
+  if (has("payment_corridors")) s.push("What are our biggest payment corridors?");
+  if (has("beneficial_owners")) s.push("Which customers have an owner with more than 50% stake?");
+  if (has("payments_in_flight")) s.push("What's stuck in flight right now?");
+  return s.slice(0, 5);
+}
+
+function md(text) {
+  const blocks = esc(text).split(/```/);
+  return blocks.map((b, i) => i % 2 ? `<pre>${b.replace(/^\w*\n/, "")}</pre>` : b.split(/\n{2,}/).map((para) => {
+    const lines = para.split("\n");
+    const inline = (l) => l.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`([^`]+)`/g, "<code>$1</code>");
+    if (lines.every((l) => /^\s*([-*]|\d+\.)\s/.test(l))) return `<ul>${lines.map((l) => `<li>${inline(l.replace(/^\s*([-*]|\d+\.)\s/, ""))}</li>`).join("")}</ul>`;
+    return `<p>${lines.map(inline).join("<br>")}</p>`;
+  }).join("")).join("");
+}
+
+async function renderAsk() {
+  const s = state.ask;
+  if (state.sample === undefined) state.sample = null;
+  const avail = !!state.sample;
+  $("#main").innerHTML = `<div class="ask">
+    <div><div class="eyebrow">Ask</div><h1>Ask the ledger</h1><p class="sub">Claude writes SQL against the loaded files, runs it here in your browser, and answers from the results. Each step is shown so you can check the work.</p></div>
+    <div class="thread" id="thread"></div>
+    <div class="composer">
+      ${avail ? "" : `<div class="panel"><div class="empty">Claude isn't available in this view. Open this artifact on claude.ai to ask questions.</div></div>`}
+      <div class="starters" id="starters">${s.turns.length ? "" : starters().map((t) => `<button>${esc(t)}</button>`).join("")}</div>
+      <textarea id="qbox" placeholder="Ask about balances, volume, revenue, customers, owners..." ${avail ? "" : "disabled"} aria-label="Question"></textarea>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button class="btn" id="send" ${avail ? "" : "disabled"}>Ask</button><button class="btn ghost" id="stop" hidden>Stop</button>
+        <label class="sub" style="margin:0" for="tier">Model</label>
+        <select id="tier"><option value="quick">Fast</option><option value="default" selected>Balanced</option><option value="complex">Most capable</option></select>
+        <button class="link" id="clear" style="background:none;border:0;margin-left:auto" ${s.turns.length ? "" : "hidden"}>New conversation</button>
+      </div>
+    </div></div>`;
+  for (const t of s.turns) appendTurn(t);
+  $("#starters").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b && avail) { $("#qbox").value = b.textContent; send(); } });
+  $("#send").addEventListener("click", send);
+  $("#qbox").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) send(); });
+  $("#stop").addEventListener("click", () => s.ctl?.abort());
+  $("#clear").addEventListener("click", () => { s.ctl?.abort(); s.turns = []; renderAsk(); });
+}
+
+function appendTurn(t) {
+  const th = $("#thread"); if (!th) return null;
+  const u = document.createElement("div"); u.className = "msg-user"; u.textContent = t.q; th.append(u);
+  const b = document.createElement("div"); b.className = "msg-bot";
+  b.innerHTML = `<div class="tools"></div><div class="answer">${t.a ? md(t.a) : t.err ? `<p class="sub">${esc(t.err)}</p>` : '<p class="thinking">Thinking...</p>'}</div>`;
+  th.append(b);
+  for (const c of t.calls || []) addCall(b, c);
+  return b;
+}
+function addCall(b, c) {
+  const d = document.createElement("details"); d.className = "toolcall";
+  const cols = c.rows?.length ? Object.keys(c.rows[0]) : [];
+  d.innerHTML = `<summary><span class="chip">SQL</span>${c.error ? `failed: ${esc(c.error)}` : `${c.rows.length} row${c.rows.length === 1 ? "" : "s"} in ${c.ms} ms`}</summary>
+    <div class="body"><pre>${esc(c.sql)}</pre>${cols.length ? `<div class="grid-scroll">${table(c.rows.slice(0, 20), cols.map((k) => [k, k]))}</div>` : ""}</div>`;
+  $(".tools", b).append(d);
+}
+
+async function send() {
+  const s = state.ask; const box = $("#qbox");
+  const question = box.value.trim(); if (!question || s.busy || !state.sample) return;
+  box.value = ""; $("#starters").innerHTML = "";
+  const turn = { q: question, a: "", calls: [] }; s.turns.push(turn);
+  const b = appendTurn(turn); b.scrollIntoView({ block: "end", behavior: "smooth" });
+  $("#clear").hidden = false;
+  s.busy = true; s.ctl = new AbortController(); $("#send").disabled = true; $("#stop").hidden = false;
+  // Earlier turns keep only question and answer; the tables and rules lead every call.
+  const history = s.turns.slice(0, -1).filter((t) => t.a).slice(-6).flatMap((t) => [{ role: "user", content: t.q }, { role: "assistant", content: t.a }]);
+  const input = [{ role: "user", content: RULES() }, ...history, { role: "user", content: question }];
+  try {
+    await state.sample(input, {
+      signal: s.ctl.signal, modelTier: $("#tier").value, cache: false,
+      onText: ({ text }) => { turn.a = text; $(".answer", b).innerHTML = md(text); },
+      tools: [{
+        name: "run_sql",
+        description: "Run one read-only DuckDB SELECT (or WITH ... SELECT) over the loaded tables. Returns up to 50 result rows as JSON.",
+        inputSchema: { type: "object", properties: { sql: { type: "string", description: "One SELECT statement" } }, required: ["sql"] },
+        async execute(input) {
+          const sql = String(input.sql || "").trim().replace(/;\s*$/, "");
+          const call = { sql, rows: [], ms: 0 };
+          try {
+            if (!/^(select|with)\b/i.test(sql) || /;/.test(sql)) throw new Error("Only a single SELECT statement is allowed");
+            const t0 = performance.now();
+            call.rows = (await q(sql)).slice(0, 50);
+            call.ms = Math.round(performance.now() - t0);
+            return call.rows;
+          } catch (e) { call.error = e.message || String(e); throw e; }
+          finally { turn.calls.push(call); addCall(b, call); }
+        },
+      }],
+    });
+  } catch (e) {
+    turn.a = e.text || "";
+    turn.err = { not_granted: "Claude wasn't allowed for this page. Allow it from the artifact's permissions to ask questions.", rate_limited: "Too many questions at once or a usage limit was reached. Try again in a little while.", cancelled: "Stopped.", refused: "Claude declined this question. Try rephrasing it." }[e.code] || `Claude couldn't finish: ${e.message || e.code}.`;
+    $(".answer", b).innerHTML = (turn.a ? md(turn.a) : "") + `<p class="sub">${esc(turn.err)}</p>`;
+  } finally {
+    s.busy = false; s.ctl = null;
+    if ($("#send")) { $("#send").disabled = false; $("#stop").hidden = true; }
+  }
+}
+
+// ---------- Tables ----------
+async function renderTables() {
+  const g = state.grid;
+  if (!g.table || !has(g.table)) g.table = [...state.tables.keys()][0];
+  $("#main").innerHTML = `
+  <div><div class="eyebrow">Tables</div><h1>Raw data</h1><p class="sub">Every loaded dataset as exported. Click a column to sort; the filter searches all text columns.</p></div>
+  <div class="tables">
+    <aside class="panel tlist">${[...state.tables].map(([n, t]) => `<button data-t="${esc(n)}" aria-current="${n === g.table}"><span>${esc(n)}</span><span class="c">${count(t.rows)}</span></button>`).join("")}</aside>
+    <section class="panel">
+      <div class="panel-head"><h2 class="mono">${esc(g.table)}</h2><input type="search" id="gf" placeholder="Filter rows" value="${esc(g.filter)}" aria-label="Filter rows"></div>
+      <div class="grid-scroll" id="grid"></div>
+      <div class="pager" id="pager"></div>
+    </section>
+  </div>`;
+  $(".tlist").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { Object.assign(g, { table: b.dataset.t, filter: "", sort: null, page: 0 }); renderTables(); } });
+  let timer; $("#gf").addEventListener("input", (e) => { clearTimeout(timer); timer = setTimeout(() => { g.filter = e.target.value; g.page = 0; drawGrid(); }, 200); });
+  await drawGrid();
+}
+async function drawGrid() {
+  const g = state.grid, t = state.tables.get(g.table), PAGE = 100;
+  const text = t.cols.filter((c) => /CHAR|TEXT|STRING/i.test(c.type)).map((c) => qid(c.name));
+  const where = g.filter && text.length ? `WHERE ${text.map((c) => `${c} ILIKE ${lit("%" + g.filter + "%")}`).join(" OR ")}` : "";
+  const total = (await one(`SELECT count(*) AS n FROM ${qid(g.table)} ${where}`)).n;
+  const order = g.sort ? `ORDER BY ${qid(g.sort)} ${g.desc ? "DESC" : "ASC"} NULLS LAST` : "";
+  const rows = await q(`SELECT * FROM ${qid(g.table)} ${where} ${order} LIMIT ${PAGE} OFFSET ${g.page * PAGE}`);
+  const isNum = (c) => /INT|DOUBLE|DECIMAL|FLOAT|REAL|NUMERIC/i.test(c.type);
+  $("#grid").innerHTML = `<table><thead><tr>${t.cols.map((c) => `<th class="sortable ${isNum(c) ? "num" : ""}" data-c="${esc(c.name)}">${esc(c.name)}${g.sort === c.name ? (g.desc ? " ↓" : " ↑") : ""}</th>`).join("")}</tr></thead>
+    <tbody>${rows.map((r) => `<tr>${t.cols.map((c) => `<td class="${isNum(c) ? "num" : ""}">${c.name === "party_id" && r[c.name] ? partyLink(r[c.name]) : cell(r[c.name])}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+  $("#grid thead").addEventListener("click", (e) => { const th = e.target.closest("th"); if (!th) return; g.desc = g.sort === th.dataset.c ? !g.desc : false; g.sort = th.dataset.c; drawGrid(); });
+  const pages = Math.max(1, Math.ceil(total / PAGE));
+  $("#pager").innerHTML = `<span>${count(total)} row${total === 1 ? "" : "s"}${g.filter ? " match" : ""}</span>
+    <button class="btn ghost" id="pp" ${g.page ? "" : "disabled"}>Previous</button><span>Page ${g.page + 1} of ${pages}</span><button class="btn ghost" id="pn" ${g.page + 1 < pages ? "" : "disabled"}>Next</button>`;
+  $("#pp").onclick = () => { g.page--; drawGrid(); }; $("#pn").onclick = () => { g.page++; drawGrid(); };
+}
+
+// ---------- Boot ----------
+let engineError = "";
+renderLoader();
+startEngine().then(() => { const el = $("#loadstatus"); if (el && !el.textContent.startsWith("Could")) el.textContent = "Ready. Choose or drop your files."; })
+  .catch((e) => { engineError = "The query engine didn't start: " + (e.message || e); const el = $("#loadstatus"); if (el) el.textContent = engineError; });
+if (window.claude?.use) window.claude.use("sample").then((s) => { state.sample = s; if (state.view === "ask" && state.tables.size) renderAsk(); }).catch(() => {});
+</script>
