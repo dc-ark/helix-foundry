@@ -1,0 +1,22 @@
+# Overlay for the Ark dev-data demo. ark/demo.sh passes it with -f; see ark/README.md.
+services:
+  ark:
+    build: ark
+    image: helix-foundry-ark:local
+    profiles: [ark]
+    # Share the app's network namespace: the loader then reaches the API on
+    # 127.0.0.1, which the app treats as the local owner, so no token is needed.
+    network_mode: "service:app"
+    volumes:
+      - ./ark/out:/out
+      # The fixture fallback reads a serving.duckdb from the host; empty by default.
+      - ${ARK_DEMO_SOURCE_DIR:-./ark/out}:/source:ro
+    environment:
+      # Short-lived credentials exported by demo.sh from the person's SSO
+      # session; nothing is written to disk.
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ARK_DEMO_CLAUDE_MODEL: ${ARK_DEMO_CLAUDE_MODEL:-claude-sonnet-5-5}

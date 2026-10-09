@@ -16,3 +16,6 @@ packages/*/dist
 backups/
 *.bak
 .claude/launch.json
+
+# Ark demo exports hold dev-stage personal data (ark/export.py)
+ark/out/

@@ -12,3 +12,4 @@ packages/*/dist
 backups
 *.bak
 .claude
+ark/out
